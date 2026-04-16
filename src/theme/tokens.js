@@ -1,0 +1,50 @@
+const tokens = {
+  colors: {
+    primary: '#0A5F3C',
+    primaryDark: '#084A2E',
+    bg: '#FAFAF7',
+    surface: '#EFEFEF',
+    text: '#1F1F1F',
+    textMuted: '#6B6B66',
+    border: '#E4E4DF',
+    gold: '#B8860B',
+    danger: '#C42B1C',
+    white: '#FFFFFF',
+    black: '#000000',
+  },
+  fonts: {
+    serif: 'PlayfairDisplay_400Regular',
+    serifItalic: 'PlayfairDisplay_400Regular_Italic',
+    serifBold: 'PlayfairDisplay_700Bold',
+    sans: 'Inter_400Regular',
+    sansMedium: 'Inter_500Medium',
+    sansBold: 'Inter_700Bold',
+  },
+  fontSize: {
+    xs: 11,
+    sm: 13,
+    md: 15,
+    lg: 17,
+    xl: 22,
+    xxl: 28,
+    display: 36,
+    hero: 48,
+  },
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    xxl: 32,
+    xxxl: 48,
+  },
+  radius: {
+    sm: 6,
+    md: 10,
+    lg: 16,
+    pill: 999,
+  },
+};
+
+export default tokens;
