@@ -70,8 +70,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="find"
         options={{
-          title: 'Find a Part',
+          title: '',
           tabBarIcon: ({ focused }) => <CameraTabIcon focused={focused} />,
+          href: '/camera',
         }}
       />
       <Tabs.Screen

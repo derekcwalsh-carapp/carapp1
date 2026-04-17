@@ -1,8 +1,25 @@
 import { create } from 'zustand';
 
 const useGarageStore = create((set) => ({
-  vehicles: [],
-  activeVehicleId: null,
+  vehicles: [
+    {
+      id: 'v1',
+      year: 1970,
+      make: 'Chevrolet',
+      model: 'Chevelle SS',
+      trim: '454 V8 · 4-speed Manual',
+      imageSource: require('../../assets/onboarding/slide1.png'),
+    },
+    {
+      id: 'v2',
+      year: 1968,
+      make: 'Ford',
+      model: 'Mustang Fastback',
+      trim: '289 V8 · Automatic',
+      imageSource: require('../../assets/onboarding/slide2.png'),
+    },
+  ],
+  activeVehicleId: 'v1',
 
   addVehicle: (vehicle) =>
     set((state) => ({ vehicles: [...state.vehicles, vehicle] })),

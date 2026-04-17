@@ -1,13 +1,13 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import tokens from '../theme/tokens';
 
-export default function TopBar({ leftIcon, title, rightIcon, onLeftPress, onRightPress }) {
+export default function TopBar({ leftIcon, title, titleNode, rightIcon, onLeftPress, onRightPress }) {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.side} onPress={onLeftPress} disabled={!onLeftPress}>
         {leftIcon}
       </TouchableOpacity>
-      <Text style={styles.title}>{title}</Text>
+      {titleNode ?? <Text style={styles.title}>{title}</Text>}
       <TouchableOpacity style={styles.side} onPress={onRightPress} disabled={!onRightPress}>
         {rightIcon}
       </TouchableOpacity>
@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.bg,
   },
   side: {
-    width: 40,
+    width: 60,
     alignItems: 'center',
   },
   title: {
