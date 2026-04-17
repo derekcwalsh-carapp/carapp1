@@ -17,6 +17,9 @@ const useIdentifyStore = create((set) => ({
     }
   },
 
+  resolveWith: (partName) =>
+    set((state) => ({ result: { ...state.result, partName } })),
+
   reset: () => set({ session: null, status: 'idle', result: null, error: null }),
 }));
 

@@ -1,10 +1,10 @@
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import tokens from '../theme/tokens';
 
-export default function Card({ children, padding = tokens.spacing.lg, onPress }) {
+export default function Card({ children, padding = tokens.spacing.lg, onPress, style }) {
   const Container = onPress ? TouchableOpacity : View;
   return (
-    <Container onPress={onPress} activeOpacity={0.8} style={[styles.card, { padding }]}>
+    <Container onPress={onPress} activeOpacity={0.8} style={[styles.card, { padding }, style]}>
       {children}
     </Container>
   );

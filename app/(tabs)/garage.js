@@ -43,6 +43,7 @@ export default function GarageScreen() {
         leftIcon={<Feather name="user" size={22} color={tokens.colors.text} />}
         titleNode={<Text style={styles.wordmark}>CarLens</Text>}
         rightIcon={<Feather name="share-2" size={22} color={tokens.colors.text} />}
+        onLeftPress={() => router.push('/profile')}
       />
 
       <View style={styles.headerRow}>

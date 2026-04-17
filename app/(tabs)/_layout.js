@@ -86,11 +86,16 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="profile"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="cart"
         options={{
-          title: 'Profile',
+          title: 'Cart',
           tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size} color={color} />
+            <Feather name="shopping-cart" size={size} color={color} />
           ),
+          href: '/cart',
         }}
       />
     </Tabs>

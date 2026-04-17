@@ -38,7 +38,10 @@ export default function IdentifyingScreen() {
   }, []);
 
   useEffect(() => {
-    if (status === 'success') router.replace('/result');
+    if (status === 'success') {
+      const result = useIdentifyStore.getState().result;
+      router.replace(result?.confidence === 'low' ? '/clarify' : '/result');
+    }
     if (status === 'error') router.replace('/error-identify');
   }, [status]);
 

@@ -1,19 +1,20 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import tokens from '../theme/tokens';
 
 const CONFIG = {
-  confirmed: { label: 'Confirmed Fit', color: tokens.colors.primary },
-  likely: { label: 'Likely Fit', color: tokens.colors.gold },
-  universal: { label: 'Universal', color: tokens.colors.textMuted },
-  requires_mod: { label: 'Requires Mod', color: tokens.colors.danger },
+  confirmed: { label: 'Confirmed Fit', color: tokens.colors.primary, icon: 'check' },
+  likely: { label: 'Likely Fit', color: tokens.colors.gold, icon: 'check' },
+  universal: { label: 'Universal', color: tokens.colors.textMuted, icon: 'minus' },
+  requires_mod: { label: 'Requires Modification', color: tokens.colors.danger, icon: 'alert-triangle' },
 };
 
-export default function FitmentBadge({ status }) {
-  const { label, color } = CONFIG[status] ?? CONFIG.universal;
+export default function FitmentBadge({ status, label: labelOverride }) {
+  const { label, color, icon } = CONFIG[status] ?? CONFIG.universal;
   return (
     <View style={[styles.badge, { borderColor: color }]}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={[styles.label, { color }]}>{label}</Text>
+      <Feather name={icon} size={10} color={color} style={styles.icon} />
+      <Text style={[styles.label, { color }]}>{labelOverride ?? label}</Text>
     </View>
   );
 }
@@ -28,10 +29,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignSelf: 'flex-start',
   },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: tokens.radius.pill,
+  icon: {
     marginRight: tokens.spacing.xs,
   },
   label: {

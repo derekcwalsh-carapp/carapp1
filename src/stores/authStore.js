@@ -9,7 +9,13 @@ const useAuthStore = create((set) => ({
 
   signIn: async (provider) => {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    const user = { id: '1', provider };
+    const user = {
+      id: '1',
+      provider,
+      name: 'Mike Sullivan',
+      email: 'mike@example.com',
+      avatarUri: null,
+    };
     const token = 'mock-token';
     set({ user, token });
     await AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ user, token }));
