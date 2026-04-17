@@ -51,6 +51,12 @@ export default function ResultsScreen() {
     fetchForSession(result?.sessionId, activeVehicleId, intent);
   }, []);
 
+  useEffect(() => {
+    if (status !== 'success') return;
+    const hasProducts = GROUP_ORDER.some((id) => groups[id]?.products?.length > 0);
+    if (!hasProducts) router.replace('/no-results');
+  }, [status]);
+
   const toggleGroup = (groupId) =>
     setExpanded((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { router } from 'expo-router';
 import useAuthStore from '../stores/authStore';
 
 const client = axios.create({
@@ -14,5 +15,15 @@ client.interceptors.request.use((config) => {
   }
   return config;
 });
+
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (!error.response) {
+      router.push('/offline');
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default client;
