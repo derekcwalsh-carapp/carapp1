@@ -141,7 +141,7 @@ export default function ProductDetailScreen() {
         </TouchableOpacity>
         <View style={styles.topBarFlex} />
         <View style={styles.topBarRight}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => toggleSave(id)}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => toggleSave(product, activeVehicleId)}>
             {saved ? (
               <Ionicons name="heart" size={22} color={tokens.colors.primary} />
             ) : (

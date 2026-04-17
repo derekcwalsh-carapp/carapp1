@@ -15,12 +15,12 @@ export default function Pill({ label, selected, onPress }) {
 
 const styles = StyleSheet.create({
   pill: {
-    flex: 1,
+    alignSelf: 'flex-start',
     paddingVertical: tokens.spacing.sm,
     paddingHorizontal: tokens.spacing.lg,
     borderRadius: tokens.radius.pill,
-    borderWidth: 1.5,
-    borderColor: tokens.colors.border,
+    borderWidth: 1,
+    borderColor: tokens.colors.primary,
     backgroundColor: tokens.colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: tokens.fonts.sansMedium,
     fontSize: tokens.fontSize.sm,
-    color: tokens.colors.textMuted,
+    color: tokens.colors.primary,
     textAlign: 'center',
   },
   labelSelected: {
