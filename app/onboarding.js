@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import {
   FlatList,
   Image,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -74,7 +75,8 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
       <FlatList
         ref={flatListRef}
         data={SLIDES}
