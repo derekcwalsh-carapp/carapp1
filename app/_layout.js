@@ -12,6 +12,7 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import tokens from '../src/theme/tokens';
+import UpgradeModal from '../src/components/UpgradeModal';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -27,5 +28,10 @@ export default function RootLayout() {
     return <View style={{ flex: 1, backgroundColor: tokens.colors.bg }} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }} />
+      <UpgradeModal />
+    </View>
+  );
 }

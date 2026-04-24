@@ -7,6 +7,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import tokens from '../src/theme/tokens';
 import useCaptureStore from '../src/stores/captureStore';
+import useSubscriptionStore from '../src/stores/subscriptionStore';
+import useUpgradeModalStore from '../src/stores/upgradeModalStore';
 
 function CornerBracket({ top, bottom, left, right }) {
   const hStyle = {
@@ -45,6 +47,8 @@ export default function CameraScreen() {
   const [flashMode, setFlashMode] = useState('off');
   const [capturing, setCapturing] = useState(false);
   const setPhoto = useCaptureStore((s) => s.setPhoto);
+  const { lookupsUsed, lookupsLimit } = useSubscriptionStore();
+  const showUpgrade = useUpgradeModalStore((s) => s.show);
 
   useEffect(() => {
     requestPermission();
@@ -76,6 +80,10 @@ export default function CameraScreen() {
 
   const handleCapture = async () => {
     if (capturing || !cameraRef.current) return;
+    if (lookupsUsed >= lookupsLimit) {
+      showUpgrade('lookup_limit');
+      return;
+    }
     setCapturing(true);
     try {
       const photo = await cameraRef.current.takePictureAsync();
@@ -87,6 +95,10 @@ export default function CameraScreen() {
   };
 
   const handleGallery = async () => {
+    if (lookupsUsed >= lookupsLimit) {
+      showUpgrade('lookup_limit');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 1,

@@ -4,13 +4,16 @@ import { Feather } from '@expo/vector-icons';
 import tokens from '../../src/theme/tokens';
 import TopBar from '../../src/components/TopBar';
 import useAuthStore from '../../src/stores/authStore';
+import useSubscriptionStore from '../../src/stores/subscriptionStore';
 
 const AVATAR_PLACEHOLDER = 'https://placehold.co/56x56/EFEFEF/6B6B66?text=MS';
 
-const MENU_ITEMS = [
+const BASE_MENU_ITEMS = [
   { icon: 'truck',        label: 'My Garage',        route: '/(tabs)/garage' },
   { icon: 'package',      label: 'Orders',            route: '/orders' },
+  { icon: 'star',         label: 'Your plan',         route: null },
   { icon: 'bookmark',     label: 'Saved items',       route: '/(tabs)/saved' },
+  { icon: 'trending-down', label: 'Watchlist',         route: '/watchlist' },
   { icon: 'map-pin',      label: 'Addresses',         route: null },
   { icon: 'credit-card',  label: 'Payment methods',   route: null },
   { icon: 'bell',         label: 'Notifications',     route: null },
@@ -43,6 +46,13 @@ function MenuRow({ icon, label, onPress, danger, last }) {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut } = useAuthStore();
+  const { tier } = useSubscriptionStore();
+
+  const menuItems = BASE_MENU_ITEMS.map((item) =>
+    item.label === 'Your plan'
+      ? { ...item, route: tier === 'free' ? '/subscription' : '/subscription-manage' }
+      : item
+  );
 
   const name = user?.name ?? 'Guest';
   const email = user?.email ?? '';
@@ -83,12 +93,12 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.menu}>
-          {MENU_ITEMS.map((item, idx) => (
+          {menuItems.map((item, idx) => (
             <MenuRow
               key={item.label}
               icon={item.icon}
               label={item.label}
-              last={idx === MENU_ITEMS.length - 1}
+              last={idx === menuItems.length - 1}
               onPress={item.route ? () => router.push(item.route) : () => {}}
             />
           ))}

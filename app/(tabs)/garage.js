@@ -4,11 +4,15 @@ import { Feather } from '@expo/vector-icons';
 import TopBar from '../../src/components/TopBar';
 import VehicleCard from '../../src/components/VehicleCard';
 import useGarageStore from '../../src/stores/garageStore';
+import useSubscriptionStore from '../../src/stores/subscriptionStore';
+import useUpgradeModalStore from '../../src/stores/upgradeModalStore';
 import tokens from '../../src/theme/tokens';
 
 export default function GarageScreen() {
   const router = useRouter();
   const { vehicles, activeVehicleId, setActive, deleteVehicle } = useGarageStore();
+  const vehicleLimit = useSubscriptionStore((s) => s.vehicleLimit);
+  const showUpgrade = useUpgradeModalStore((s) => s.show);
 
   function handleLongPress(vehicle) {
     Alert.alert(
@@ -17,7 +21,7 @@ export default function GarageScreen() {
       [
         {
           text: 'Edit',
-          onPress: () => router.push(`/garage/edit?id=${vehicle.id}`),
+          onPress: () => router.push({ pathname: '/garage/edit', params: { vehicleId: vehicle.id } }),
         },
         {
           text: 'Delete',
@@ -50,7 +54,13 @@ export default function GarageScreen() {
         <Text style={styles.pageTitle}>Garage</Text>
         <Pressable
           style={styles.addButton}
-          onPress={() => router.push('/garage/add')}
+          onPress={() => {
+            if (vehicles.length >= vehicleLimit) {
+              showUpgrade('vehicle_limit');
+            } else {
+              router.push('/garage/add');
+            }
+          }}
           hitSlop={8}
         >
           <Feather name="plus" size={28} color={tokens.colors.primary} />
