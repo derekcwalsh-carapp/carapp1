@@ -14,7 +14,7 @@ const BASE_MENU_ITEMS = [
   { icon: 'star',         label: 'Your plan',         route: null },
   { icon: 'bookmark',     label: 'Saved items',       route: '/(tabs)/saved' },
   { icon: 'trending-down', label: 'Watchlist',         route: '/watchlist' },
-  { icon: 'map-pin',      label: 'Addresses',         route: null },
+  { icon: 'map-pin',      label: 'Addresses',         route: '/addresses' },
   { icon: 'credit-card',  label: 'Payment methods',   route: null },
   { icon: 'bell',         label: 'Notifications',     route: null },
   { icon: 'help-circle',  label: 'Help & support',    route: null },
