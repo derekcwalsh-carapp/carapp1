@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deleteAccount as deleteAccountApi } from '../api/accountService';
+import useGarageStore from './garageStore';
 
 const AUTH_KEY = '@carlens/auth';
 
@@ -34,6 +36,13 @@ const useAuthStore = create((set, get) => ({
     const next = { ...user, ...fields };
     set({ user: next });
     await AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ user: next, token }));
+  },
+
+  deleteAccount: async () => {
+    await deleteAccountApi();
+    useGarageStore.setState({ vehicles: [], activeVehicleId: null });
+    set({ user: null, token: null });
+    await AsyncStorage.clear();
   },
 
   hydrate: async () => {
