@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AUTH_KEY = '@carlens/auth';
 
-const useAuthStore = create((set) => ({
+const useAuthStore = create((set, get) => ({
   user: null,
   token: null,
 
@@ -24,6 +24,16 @@ const useAuthStore = create((set) => ({
   signOut: async () => {
     set({ user: null, token: null });
     await AsyncStorage.removeItem(AUTH_KEY);
+  },
+
+  updateProfile: async (fields) => {
+    // TODO: replace with real PATCH /me API call
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const { user, token } = get();
+    if (!user) return;
+    const next = { ...user, ...fields };
+    set({ user: next });
+    await AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ user: next, token }));
   },
 
   hydrate: async () => {

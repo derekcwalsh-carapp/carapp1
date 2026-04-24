@@ -89,6 +89,13 @@ export default function ProfileScreen() {
             <Text style={styles.name}>{name}</Text>
             <Text style={styles.email}>{email}</Text>
           </View>
+          <Pressable
+            onPress={() => router.push('/edit-profile')}
+            hitSlop={8}
+            style={styles.editButton}
+          >
+            <Feather name="edit-2" size={18} color={tokens.colors.textMuted} />
+          </Pressable>
           <Image source={{ uri: avatarUri }} style={styles.avatar} />
         </View>
 
@@ -161,6 +168,10 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: tokens.colors.surface,
+  },
+  editButton: {
+    padding: tokens.spacing.sm,
+    marginRight: tokens.spacing.xs,
   },
   menu: {
     borderTopWidth: 1,
