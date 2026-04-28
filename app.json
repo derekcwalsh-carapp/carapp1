@@ -10,7 +10,8 @@
     "newArchEnabled": true,
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      "expo-apple-authentication"
     ],
     "splash": {
       "image": "./assets/splash-icon.png",

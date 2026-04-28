@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, SafeAreaView, StyleSheet, Alert, Pressable } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, ScrollView, SafeAreaView, StyleSheet, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import tokens from '../src/theme/tokens';
@@ -69,13 +70,20 @@ const PRO_FEATURES = [
 ];
 
 export default function SubscriptionScreen() {
-  const { tier, billingCycle, setBillingCycle, startCheckout } = useSubscriptionStore();
+  const tier = useSubscriptionStore((s) => s.tier);
+  const billingCycle = useSubscriptionStore((s) => s.billingCycle);
+  const setBillingCycle = useSubscriptionStore((s) => s.setBillingCycle);
+  const startCheckout = useSubscriptionStore((s) => s.startCheckout);
+  const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription);
   const isAnnual = billingCycle === 'annual';
 
+  useEffect(() => {
+    fetchSubscription();
+  }, [fetchSubscription]);
+
   const handleCheckout = (planTier) => {
-    startCheckout(planTier, billingCycle).then(() => {
-      Alert.alert('Coming Soon', 'Stripe checkout coming soon.');
-    });
+    const cycle = billingCycle ?? 'monthly';
+    void startCheckout(planTier, cycle);
   };
 
   return (

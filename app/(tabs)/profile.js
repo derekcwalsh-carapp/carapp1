@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -45,8 +46,16 @@ function MenuRow({ icon, label, onPress, danger, last }) {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuthStore();
-  const { tier } = useSubscriptionStore();
+  const user = useAuthStore((s) => s.user);
+  const signOut = useAuthStore((s) => s.signOut);
+  const hydrate = useAuthStore((s) => s.hydrate);
+  const tier = useSubscriptionStore((s) => s.tier);
+  const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription);
+
+  useEffect(() => {
+    hydrate();
+    fetchSubscription();
+  }, [hydrate, fetchSubscription]);
 
   const menuItems = BASE_MENU_ITEMS.map((item) =>
     item.label === 'Your plan'

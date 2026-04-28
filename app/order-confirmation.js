@@ -28,6 +28,7 @@ export default function OrderConfirmationScreen() {
   const clearedRef = useRef(false);
 
   const orderId = paramId ?? order?.id;
+  const displayOrderLabel = order?.orderNumber ?? orderId;
   const items = order?.items ?? [];
   const thumbnails = items.slice(0, 3);
 
@@ -55,7 +56,7 @@ export default function OrderConfirmationScreen() {
         </Text>
 
         <View style={styles.card}>
-          <Text style={styles.orderNumber}>Order #{orderId ?? 'CL-00000'}</Text>
+          <Text style={styles.orderNumber}>Order #{displayOrderLabel ?? 'CL-00000'}</Text>
           <Text style={styles.arrival}>{getArrivalLabel()}</Text>
 
           {thumbnails.length > 0 && (

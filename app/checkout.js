@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -56,6 +56,20 @@ export default function CheckoutScreen() {
   const placing = useCheckoutStore((s) => s.placing);
   const order = useCheckoutStore((s) => s.order);
   const placeOrder = useCheckoutStore((s) => s.placeOrder);
+  const fetchCheckoutData = useCheckoutStore((s) => s.fetchCheckoutData);
+  const checkoutLoadStatus = useCheckoutStore((s) => s.checkoutLoadStatus);
+  const checkoutError = useCheckoutStore((s) => s.checkoutError);
+
+  const paymentLabel = useMemo(() => {
+    const last4 = paymentMethod?.last4 ?? '••••';
+    const brand = (paymentMethod?.brand || 'Card').toString();
+    const label = brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase();
+    return `${label} ending in ${last4}`;
+  }, [paymentMethod]);
+
+  useEffect(() => {
+    fetchCheckoutData();
+  }, [fetchCheckoutData]);
 
   useEffect(() => {
     if (order) {
@@ -76,6 +90,16 @@ export default function CheckoutScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {checkoutLoadStatus === 'loading' && (
+          <View style={styles.bannerLoad}>
+            <ActivityIndicator size="small" color={tokens.colors.primary} />
+            <Text style={styles.bannerLoadText}>Loading checkout…</Text>
+          </View>
+        )}
+        {checkoutError ? (
+          <Text style={styles.errorText}>{checkoutError}</Text>
+        ) : null}
+
         {/* Ship to */}
         <SectionCard>
           <CardHeader
@@ -83,11 +107,17 @@ export default function CheckoutScreen() {
             linkLabel="Edit"
             onLinkPress={() => console.log('Edit address')}
           />
-          <Text style={styles.addressName}>{address.name}</Text>
-          <Text style={styles.addressLine}>{address.line1}</Text>
-          <Text style={styles.addressLine}>
-            {address.city}, {address.state} {address.zip}
-          </Text>
+          {address ? (
+            <>
+              <Text style={styles.addressName}>{address.name}</Text>
+              <Text style={styles.addressLine}>{address.line1}</Text>
+              <Text style={styles.addressLine}>
+                {address.city}, {address.state} {address.zip}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.addressLine}>Add a shipping address to continue.</Text>
+          )}
         </SectionCard>
 
         {/* Payment */}
@@ -100,7 +130,7 @@ export default function CheckoutScreen() {
           <View style={styles.paymentRow}>
             <VisaBadge />
             <Text style={styles.paymentLabel}>
-              Visa ending in {paymentMethod.last4}
+              {paymentMethod ? paymentLabel : 'Add a payment method to continue.'}
             </Text>
           </View>
         </SectionCard>
@@ -126,7 +156,9 @@ export default function CheckoutScreen() {
                   {item.fitment ?? item.supplier}
                 </Text>
               </View>
-              <Text style={styles.itemPrice}>{fmt(item.price ?? 0)}</Text>
+              <Text style={styles.itemPrice}>
+                {fmt((item.price ?? 0) * (item.qty ?? 1))}
+              </Text>
             </View>
           ))}
 
@@ -157,8 +189,13 @@ export default function CheckoutScreen() {
         <TouchableOpacity
           style={[styles.applePayBtn, placing && styles.btnDisabled]}
           activeOpacity={0.85}
-          disabled={placing}
-          onPress={() => placeOrder(items)}
+          disabled={
+            placing ||
+            checkoutLoadStatus !== 'success' ||
+            !address?.id ||
+            !paymentMethod?.id
+          }
+          onPress={() => placeOrder()}
         >
           {placing ? (
             <ActivityIndicator size="small" color={tokens.colors.white} />
@@ -203,6 +240,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.xl,
     paddingTop: tokens.spacing.md,
     paddingBottom: tokens.spacing.xxxl,
+  },
+  bannerLoad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: tokens.spacing.sm,
+    marginBottom: tokens.spacing.md,
+  },
+  bannerLoadText: {
+    fontFamily: tokens.fonts.sans,
+    fontSize: tokens.fontSize.sm,
+    color: tokens.colors.textMuted,
+  },
+  errorText: {
+    fontFamily: tokens.fonts.sans,
+    fontSize: tokens.fontSize.sm,
+    color: tokens.colors.primary,
+    marginBottom: tokens.spacing.md,
   },
 
   // Cards

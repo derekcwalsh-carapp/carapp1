@@ -76,17 +76,21 @@ export default function EditVehicleScreen() {
     draft.transmission      !== (vehicle.transmission ?? null)    ||
     modsNotes               !== (vehicle.modsNotes    ?? '');
 
-  function handleSave() {
-    updateVehicle(vehicleId, {
-      year:         draft.year,
-      make:         draft.make,
-      model:        draft.model,
-      trim:         draft.trim,
-      engine:       draft.engine,
-      transmission: draft.transmission,
-      modsNotes:    draft.modsNotes,
-    });
-    router.back();
+  async function handleSave() {
+    try {
+      await updateVehicle(vehicleId, {
+        year: draft.year,
+        make: draft.make,
+        model: draft.model,
+        trim: draft.trim,
+        engine: draft.engine,
+        transmission: draft.transmission,
+        modsNotes: draft.modsNotes,
+      });
+      router.back();
+    } catch (e) {
+      Alert.alert('Save failed', e?.message || 'Could not update vehicle.');
+    }
   }
 
   function handleDelete() {
@@ -98,12 +102,16 @@ export default function EditVehicleScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            deleteVehicle(vehicleId);
-            router.replace('/(tabs)/garage');
+          onPress: async () => {
+            try {
+              await deleteVehicle(vehicleId);
+              router.replace('/(tabs)/garage');
+            } catch (e) {
+              Alert.alert('Error', e?.message || 'Could not delete vehicle.');
+            }
           },
         },
-      ],
+      ]
     );
   }
 

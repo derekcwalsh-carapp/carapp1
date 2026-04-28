@@ -1,4 +1,14 @@
-import { View, Text, ScrollView, Image, Pressable, TouchableOpacity, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Image,
+  Pressable,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -13,7 +23,8 @@ function stepsDone(status) {
   if (status === 'delivered') return 4;
   if (status === 'shipped') return 3;
   if (status === 'paid') return 2;
-  return 1; // processing / default
+  if (status === 'placed') return 1;
+  return 1;
 }
 
 function formatDate(isoString) {
@@ -60,8 +71,12 @@ function ItemRow({ item }) {
   return (
     <View style={styles.itemRow}>
       <View style={styles.itemThumbWrap}>
-        {item.thumbnailUri ? (
-          <Image source={{ uri: item.thumbnailUri }} style={styles.itemThumb} resizeMode="contain" />
+        {item.thumbnailUri || item.imageUri ? (
+          <Image
+            source={{ uri: item.thumbnailUri ?? item.imageUri }}
+            style={styles.itemThumb}
+            resizeMode="contain"
+          />
         ) : (
           <View style={[styles.itemThumb, styles.itemThumbPlaceholder]} />
         )}
@@ -70,7 +85,10 @@ function ItemRow({ item }) {
         <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
         {item.supplier ? <Text style={styles.itemSupplier}>{item.supplier}</Text> : null}
         <Text style={styles.itemPrice}>
-          ${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}
+          $
+          {typeof item.price === 'number'
+            ? item.price.toFixed(2)
+            : String(item.price ?? '0.00')}
         </Text>
       </View>
     </View>
@@ -87,10 +105,41 @@ function SummaryRow({ label, value, bold }) {
 }
 
 export default function OrderDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id: rawId } = useLocalSearchParams();
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const router = useRouter();
-  const byId = useOrdersStore((s) => s.byId);
-  const order = byId(id);
+  const fetchOrder = useOrdersStore((s) => s.fetchOrder);
+  const order = useOrdersStore((s) => (id ? s.orderCache[id] : null));
+  const [loadState, setLoadState] = useState('loading');
+
+  useEffect(() => {
+    if (!id) {
+      setLoadState('notfound');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadState('loading');
+      const result = await fetchOrder(id);
+      if (cancelled) return;
+      setLoadState(result ? 'ready' : 'notfound');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, fetchOrder]);
+
+  if (loadState === 'loading') {
+    return (
+      <SafeAreaView style={styles.root}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.fallbackBack}>
+          <Feather name="arrow-left" size={22} color={tokens.colors.text} />
+          <Text style={styles.fallbackBackLabel}>Back</Text>
+        </TouchableOpacity>
+        <ActivityIndicator size="large" color={tokens.colors.primary} style={styles.loader} />
+      </SafeAreaView>
+    );
+  }
 
   if (!order) {
     return (
@@ -106,6 +155,8 @@ export default function OrderDetailScreen() {
 
   const addr = order.shippingAddress ?? {};
 
+  const displayNumber = order.orderNumber ?? order.id;
+
   return (
     <SafeAreaView style={styles.root}>
       <TopBar
@@ -120,7 +171,7 @@ export default function OrderDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        <Text style={styles.pageTitle}>Order #{order.id}</Text>
+        <Text style={styles.pageTitle}>Order #{displayNumber}</Text>
         <Text style={styles.placedAt}>Placed {formatDate(order.placedAt)}</Text>
 
         <StatusTimeline status={order.status} />
@@ -129,7 +180,7 @@ export default function OrderDetailScreen() {
         <Card style={styles.card}>
           <Text style={styles.cardTitle}>Items</Text>
           {(order.items ?? []).map((item, i) => (
-            <View key={i}>
+            <View key={item.id ?? i}>
               {i > 0 && <View style={styles.divider} />}
               <ItemRow item={item} />
             </View>
@@ -199,6 +250,10 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: tokens.colors.bg,
+  },
+
+  loader: {
+    marginTop: tokens.spacing.xxxl,
   },
 
   // fallback

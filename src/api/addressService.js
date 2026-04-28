@@ -1,42 +1,16 @@
+import client from './client.js';
+
 export const fetchAddresses = () =>
-  new Promise((resolve) =>
-    setTimeout(
-      () =>
-        resolve([
-          {
-            id: 'a1',
-            name: 'Michael Thompson',
-            line1: '1847 Oak Ridge Drive',
-            line2: '',
-            city: 'Nashville',
-            state: 'TN',
-            zip: '37215',
-            country: 'United States',
-            isDefault: true,
-          },
-          {
-            id: 'a2',
-            name: 'Michael Thompson',
-            line1: '402 Workshop Lane',
-            line2: 'Bay 3',
-            city: 'Franklin',
-            state: 'TN',
-            zip: '37064',
-            country: 'United States',
-            isDefault: false,
-          },
-        ]),
-      400
-    )
-  );
+  client.get('/v1/addresses').then((r) => r.data.data);
 
 export const createAddress = (address) =>
-  new Promise((resolve) =>
-    setTimeout(() => resolve({ ...address, id: `a${Date.now()}` }), 300)
-  );
+  client.post('/v1/addresses', address).then((r) => r.data.data);
 
 export const updateAddress = (id, address) =>
-  new Promise((resolve) => setTimeout(() => resolve({ ...address, id }), 300));
+  client.put(`/v1/addresses/${id}`, address).then((r) => r.data.data);
 
 export const deleteAddress = (id) =>
-  new Promise((resolve) => setTimeout(() => resolve({ id }), 300));
+  client.delete(`/v1/addresses/${id}`).then((r) => r.data.data);
+
+export const setDefaultAddress = (id) =>
+  client.patch(`/v1/addresses/${id}/default`).then((r) => r.data.data);

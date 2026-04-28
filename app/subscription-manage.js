@@ -7,8 +7,12 @@ import {
   Alert,
   Pressable,
   Animated,
+  Modal,
+  TouchableOpacity,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import tokens from '../src/theme/tokens';
@@ -27,13 +31,21 @@ const TIER_PRICES = {
 };
 
 function formatPeriodEnd(dateStr) {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
   });
 }
+
+const fmtMoney = (cents) =>
+  `$${((cents ?? 0) / 100).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 
 function Rule() {
   return <View style={styles.rule} />;
@@ -50,22 +62,32 @@ function BillingRow({ iconName, label, rightIconName, onPress }) {
 }
 
 export default function SubscriptionManageScreen() {
-  const {
-    tier,
-    billingCycle,
-    status,
-    currentPeriodEnd,
-    lookupsUsed,
-    lookupsLimit,
-    vehicleLimit,
-    cancelSubscription,
-    openPortal,
-    setBillingCycle,
-  } = useSubscriptionStore();
+  const tier = useSubscriptionStore((s) => s.tier);
+  const billingCycle = useSubscriptionStore((s) => s.billingCycle);
+  const status = useSubscriptionStore((s) => s.status);
+  const currentPeriodEnd = useSubscriptionStore((s) => s.currentPeriodEnd);
+  const lookupsUsed = useSubscriptionStore((s) => s.lookupsUsed);
+  const lookupsLimit = useSubscriptionStore((s) => s.lookupsLimit);
+  const vehicleLimit = useSubscriptionStore((s) => s.vehicleLimit);
+  const cancelAtPeriodEnd = useSubscriptionStore((s) => s.cancelAtPeriodEnd);
+  const invoices = useSubscriptionStore((s) => s.invoices);
+  const cancelSubscription = useSubscriptionStore((s) => s.cancelSubscription);
+  const openPortal = useSubscriptionStore((s) => s.openPortal);
+  const setBillingCycle = useSubscriptionStore((s) => s.setBillingCycle);
+  const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription);
+  const fetchInvoices = useSubscriptionStore((s) => s.fetchInvoices);
+
   const { vehicles } = useGarageStore();
+
+  const [invoicesOpen, setInvoicesOpen] = useState(false);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
 
   const meterAnim = useRef(new Animated.Value(0)).current;
   const meterFill = lookupsLimit > 0 ? lookupsUsed / lookupsLimit : 0;
+
+  useEffect(() => {
+    fetchSubscription();
+  }, [fetchSubscription]);
 
   useEffect(() => {
     Animated.timing(meterAnim, {
@@ -73,7 +95,7 @@ export default function SubscriptionManageScreen() {
       duration: 700,
       useNativeDriver: false,
     }).start();
-  }, []);
+  }, [meterAnim, meterFill]);
 
   const isCancelled = status === 'cancelled';
   const isAnnual = billingCycle === 'annual';
@@ -132,7 +154,13 @@ export default function SubscriptionManageScreen() {
           </View>
           <Text style={styles.price}>{priceLabel}</Text>
           <Text style={styles.renewal}>
-            {isCancelled ? `Access until ${periodLabel}` : `Renews ${periodLabel}`}
+            {isCancelled
+              ? `Access until ${periodLabel}`
+              : cancelAtPeriodEnd
+                ? `Cancels ${periodLabel}`
+                : periodLabel
+                  ? `Renews ${periodLabel}`
+                  : ''}
           </Text>
         </Card>
 
@@ -181,9 +209,14 @@ export default function SubscriptionManageScreen() {
             iconName="file-text"
             label="Billing history"
             rightIconName="chevron-right"
-            onPress={() => {
-              console.log('[CarLens] Billing history');
-              router.push('/billing-history');
+            onPress={async () => {
+              setInvoicesLoading(true);
+              try {
+                await fetchInvoices();
+                setInvoicesOpen(true);
+              } finally {
+                setInvoicesLoading(false);
+              }
             }}
           />
         </Card>
@@ -221,6 +254,49 @@ export default function SubscriptionManageScreen() {
         </View>
 
       </ScrollView>
+
+      <Modal
+        visible={invoicesOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setInvoicesOpen(false)}
+      >
+        <SafeAreaView style={styles.modalSafe}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setInvoicesOpen(false)} hitSlop={12}>
+              <Text style={styles.modalClose}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Billing history</Text>
+            <View style={{ width: 48 }} />
+          </View>
+          {invoicesLoading ? (
+            <ActivityIndicator style={styles.modalLoader} color={tokens.colors.primary} />
+          ) : invoices.length === 0 ? (
+            <Text style={styles.modalEmpty}>No invoices yet.</Text>
+          ) : (
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              {invoices.map((inv) => (
+                <Pressable
+                  key={inv.id}
+                  style={styles.invoiceRow}
+                  onPress={() => inv.invoicePdfUrl && Linking.openURL(inv.invoicePdfUrl)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.invoiceAmount}>{fmtMoney(inv.amountCents)}</Text>
+                    <Text style={styles.invoiceMeta}>
+                      {inv.status}
+                      {inv.paidAt ? ` · ${formatPeriodEnd(inv.paidAt)}` : ''}
+                    </Text>
+                  </View>
+                  {inv.invoicePdfUrl ? (
+                    <Feather name="external-link" size={18} color={tokens.colors.primary} />
+                  ) : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -376,5 +452,64 @@ const styles = StyleSheet.create({
     fontFamily: tokens.fonts.sans,
     fontSize: tokens.fontSize.sm,
     color: tokens.colors.primary,
+  },
+
+  modalSafe: {
+    flex: 1,
+    backgroundColor: tokens.colors.bg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
+  },
+  modalClose: {
+    fontFamily: tokens.fonts.sans,
+    fontSize: tokens.fontSize.md,
+    color: tokens.colors.primary,
+    width: 48,
+  },
+  modalTitle: {
+    fontFamily: tokens.fonts.serifBold,
+    fontSize: tokens.fontSize.md,
+    color: tokens.colors.text,
+  },
+  modalLoader: {
+    marginTop: tokens.spacing.xxxl,
+  },
+  modalEmpty: {
+    fontFamily: tokens.fonts.sans,
+    fontSize: tokens.fontSize.md,
+    color: tokens.colors.textMuted,
+    textAlign: 'center',
+    marginTop: tokens.spacing.xxxl,
+    paddingHorizontal: tokens.spacing.xl,
+  },
+  modalScroll: {
+    padding: tokens.spacing.xl,
+    paddingBottom: tokens.spacing.xxxl,
+  },
+  invoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
+    gap: tokens.spacing.md,
+  },
+  invoiceAmount: {
+    fontFamily: tokens.fonts.serifBold,
+    fontSize: tokens.fontSize.md,
+    color: tokens.colors.text,
+  },
+  invoiceMeta: {
+    fontFamily: tokens.fonts.sans,
+    fontSize: tokens.fontSize.sm,
+    color: tokens.colors.textMuted,
+    marginTop: 2,
   },
 });

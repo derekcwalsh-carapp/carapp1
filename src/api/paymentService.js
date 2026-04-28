@@ -1,31 +1,13 @@
+import client from './client.js';
+
 export const fetchPaymentMethods = () =>
-  new Promise((resolve) =>
-    setTimeout(
-      () =>
-        resolve([
-          {
-            id: 'pm_1',
-            brand: 'visa',
-            last4: '4242',
-            expMonth: 8,
-            expYear: 2027,
-            isDefault: true,
-          },
-          {
-            id: 'pm_2',
-            brand: 'mastercard',
-            last4: '5588',
-            expMonth: 3,
-            expYear: 2026,
-            isDefault: false,
-          },
-        ]),
-      400
-    )
-  );
+  client.get('/v1/payment-methods').then((r) => r.data.data);
 
 export const deletePaymentMethod = (id) =>
-  new Promise((resolve) => setTimeout(() => resolve({ id }), 300));
+  client.delete(`/v1/payment-methods/${id}`).then((r) => r.data.data);
 
 export const setDefaultPaymentMethod = (id) =>
-  new Promise((resolve) => setTimeout(() => resolve({ id }), 300));
+  client.patch(`/v1/payment-methods/${id}/default`).then((r) => r.data.data);
+
+export const createSetupIntent = () =>
+  client.post('/v1/payment-methods/setup').then((r) => r.data.data);

@@ -28,11 +28,13 @@ function formatDate(isoString) {
 
 function StatusPill({ status }) {
   const config = {
+    placed: { label: 'Processing', bg: tokens.colors.surface, color: tokens.colors.textMuted },
+    paid: { label: 'Processing', bg: tokens.colors.surface, color: tokens.colors.textMuted },
     shipped: { label: 'Shipped', bg: tokens.colors.primary, color: tokens.colors.white },
     delivered: { label: 'Delivered', bg: tokens.colors.surface, color: tokens.colors.primary },
     processing: { label: 'Processing', bg: tokens.colors.surface, color: tokens.colors.textMuted },
   };
-  const { label, bg, color } = config[status] ?? config.processing;
+  const { label, bg, color } = config[status] ?? config.placed;
   return (
     <View style={[styles.statusPill, { backgroundColor: bg }]}>
       <Text style={[styles.statusText, { color }]}>{label}</Text>
@@ -83,14 +85,14 @@ export default function OrdersScreen() {
   const [activeFilter, setActiveFilter] = useState('All');
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const filtered = orders.filter((o) => {
-    if (activeFilter === 'In Progress') return o.status === 'processing' || o.status === 'shipped';
-    if (activeFilter === 'Delivered') return o.status === 'delivered';
-    return true;
-  });
+    const apiStatus =
+      activeFilter === 'In Progress'
+        ? 'in_progress'
+        : activeFilter === 'Delivered'
+          ? 'delivered'
+          : undefined;
+    fetchOrders(apiStatus);
+  }, [activeFilter, fetchOrders]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -104,7 +106,7 @@ export default function OrdersScreen() {
       />
 
       <FlatList
-        data={filtered}
+        data={orders}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={

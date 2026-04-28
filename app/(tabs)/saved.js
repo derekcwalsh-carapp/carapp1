@@ -2,7 +2,7 @@ import { View, Text, FlatList, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import tokens from '../../src/theme/tokens';
 import TopBar from '../../src/components/TopBar';
@@ -15,9 +15,13 @@ const ALL_PILL = 'all';
 
 export default function SavedScreen() {
   const router = useRouter();
-  const { savedItems, toggleSave, isSaved } = useSavedStore();
+  const { savedItems, toggleSave, isSaved, fetchSavedItems } = useSavedStore();
   const { vehicles } = useGarageStore();
   const [selectedVehicleId, setSelectedVehicleId] = useState(ALL_PILL);
+
+  useEffect(() => {
+    fetchSavedItems();
+  }, [fetchSavedItems]);
 
   const filtered =
     selectedVehicleId === ALL_PILL

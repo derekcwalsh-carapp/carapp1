@@ -18,11 +18,14 @@ import useIdentifyStore from '../src/stores/identifyStore';
 const RING_SIZE = 220;
 const PHOTO_SIZE = 100;
 const BAR_WIDTH = 200;
+const PROGRESS_MAX = 180;
+const PULSE_LOW = 160;
 
 export default function IdentifyingScreen() {
   const router = useRouter();
 
   const photoUri = useCaptureStore((s) => s.photoUri);
+  const crop = useCaptureStore((s) => s.crop);
   const vehicles = useGarageStore((s) => s.vehicles);
   const activeVehicleId = useGarageStore((s) => s.activeVehicleId);
   const activeVehicle = vehicles.find((v) => v.id === activeVehicleId) ?? null;
@@ -32,35 +35,70 @@ export default function IdentifyingScreen() {
 
   const spinAnim = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const pulseLoopRef = useRef(null);
 
   useEffect(() => {
-    startIdentify(photoUri, activeVehicle);
+    if (!photoUri) return;
+    startIdentify(photoUri, activeVehicle, crop);
   }, []);
 
   useEffect(() => {
     if (status === 'success') {
       const result = useIdentifyStore.getState().result;
-      router.replace(result?.confidence === 'low' ? '/clarify' : '/result');
+      const needsClarify =
+        result?.confidence != null &&
+        result.confidence < 0.6 &&
+        result?.clarifyQuestion;
+      router.replace(needsClarify ? '/clarify' : '/result');
     }
     if (status === 'error') router.replace('/error-identify');
   }, [status]);
 
   useEffect(() => {
-    Animated.loop(
+    const spin = Animated.loop(
       Animated.timing(spinAnim, {
         toValue: 1,
         duration: 1200,
         easing: Easing.linear,
         useNativeDriver: true,
-      })
-    ).start();
+      }),
+    );
+    spin.start();
+    return () => spin.stop();
+  }, []);
 
-    Animated.timing(progressAnim, {
-      toValue: BAR_WIDTH,
-      duration: 2500,
+  useEffect(() => {
+    progressAnim.setValue(0);
+    const fill = Animated.timing(progressAnim, {
+      toValue: PROGRESS_MAX,
+      duration: 10000,
       easing: Easing.inOut(Easing.ease),
       useNativeDriver: false,
-    }).start();
+    });
+    fill.start(({ finished }) => {
+      if (!finished) return;
+      pulseLoopRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(progressAnim, {
+            toValue: PULSE_LOW,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: false,
+          }),
+          Animated.timing(progressAnim, {
+            toValue: PROGRESS_MAX,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: false,
+          }),
+        ]),
+      );
+      pulseLoopRef.current.start();
+    });
+    return () => {
+      fill.stop();
+      pulseLoopRef.current?.stop();
+    };
   }, []);
 
   const rotate = spinAnim.interpolate({

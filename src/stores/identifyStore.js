@@ -7,11 +7,17 @@ const useIdentifyStore = create((set) => ({
   result: null,
   error: null,
 
-  startIdentify: async (photoUri, vehicle) => {
+  startIdentify: async (photoUri, vehicle, crop) => {
     set({ status: 'loading', result: null, error: null, session: { photoUri, vehicle } });
     try {
-      const result = await identifyPart(photoUri, vehicle);
-      set({ status: 'success', result });
+      const result = await identifyPart(photoUri, vehicle, crop);
+      set((state) => ({
+        status: 'success',
+        result,
+        session: state.session
+          ? { ...state.session, id: result.sessionId }
+          : { photoUri, vehicle, id: result.sessionId },
+      }));
     } catch (err) {
       set({ status: 'error', error: err?.message ?? 'Unknown error' });
     }

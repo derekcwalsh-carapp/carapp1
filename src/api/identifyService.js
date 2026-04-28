@@ -1,26 +1,51 @@
-// TODO: replace mock with POST /v1/identify via axios client
-const MOCK_LOW_CONFIDENCE = {
-  confidence: 'low',
-  clarifyQuestion: 'Is this a carburetor?',
-  options: ['Carburetor', 'Throttle body', 'Intake manifold'],
-};
+import client from './client.js';
 
-const MOCK_HIGH_CONFIDENCE = {
-  confidence: 'high',
-  partName: 'Holley 4-barrel carburetor',
-  category: 'fuel_system.carburetor',
-  alternatives: [
-    { partName: 'Edelbrock 4-barrel carburetor', confidence: 0.11 },
-  ],
-};
+export async function requestUploadUrl(contentType, vehicleId) {
+  const res = await client.post('/v1/identify/upload', { contentType, vehicleId });
+  return res.data.data;
+}
 
-// Toggle to simulate low-confidence clarification flow
-const USE_LOW_CONFIDENCE_MOCK = true;
-
-export function identifyPart(photoUri, vehicle) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(USE_LOW_CONFIDENCE_MOCK ? MOCK_LOW_CONFIDENCE : MOCK_HIGH_CONFIDENCE);
-    }, 2500);
+export async function uploadPhotoToS3(uploadUrl, localFileUri, contentType = 'image/jpeg') {
+  const response = await fetch(localFileUri);
+  const blob = await response.blob();
+  const putResponse = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType },
+    body: blob,
   });
+  if (!putResponse.ok) throw new Error('Photo upload to S3 failed');
+}
+
+export async function startIdentification(sessionId, crop) {
+  const body = { sessionId };
+  if (crop != null) {
+    body.crop = crop;
+  }
+  const res = await client.post('/v1/identify', body);
+  return res.data.data;
+}
+
+export async function pollIdentificationResult(sessionId) {
+  const res = await client.get(`/v1/identify/${sessionId}`);
+  return res.data.data;
+}
+
+export async function identifyPart(photoUri, vehicle, crop) {
+  const { sessionId, uploadUrl } = await requestUploadUrl('image/jpeg', vehicle?.id);
+  await uploadPhotoToS3(uploadUrl, photoUri, 'image/jpeg');
+  await startIdentification(sessionId, crop ?? null);
+
+  let attempts = 0;
+  while (attempts < 30) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const result = await pollIdentificationResult(sessionId);
+    if (result.status === 'success' || result.status === 'error') {
+      if (result.status === 'error') {
+        throw new Error(result.errorCode || 'Identification failed');
+      }
+      return { ...result, sessionId };
+    }
+    attempts += 1;
+  }
+  throw new Error('Identification timed out');
 }

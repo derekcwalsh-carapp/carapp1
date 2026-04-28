@@ -6,6 +6,8 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -105,9 +107,14 @@ const STEP_CONFIG = [
 
 // ─── Option row ───────────────────────────────────────────────────────────────
 
-function OptionRow({ label, selected, onPress }) {
+function OptionRow({ label, selected, onPress, disabled }) {
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={[styles.row, disabled && styles.rowDisabled]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      disabled={disabled}
+    >
       {selected && <View style={styles.activeBar} />}
       <View style={styles.iconPlaceholder} />
       <Text style={[styles.rowLabel, selected && styles.rowLabelSelected]}>
@@ -130,6 +137,7 @@ export default function AddVehicleScreen() {
   const addVehicle = useGarageStore((s) => s.addVehicle);
 
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
 
   const config = STEP_CONFIG[step - 1];
   const crumbText = config.crumb(draft);
@@ -150,7 +158,7 @@ export default function AddVehicleScreen() {
     router.back();
   }
 
-  function handleSelect(value) {
+  async function handleSelect(value) {
     if (config.field === 'model') {
       // Infer make from the selected model
       draft.setField('make', MODEL_MAKE_MAP[value] ?? null);
@@ -163,18 +171,23 @@ export default function AddVehicleScreen() {
     }
 
     // Final step — commit vehicle to garage
-    const newVehicle = {
-      id: `v_${Date.now()}`,
-      year: draft.year,
-      make: draft.make,
-      model: draft.model,
-      trim: draft.trim,
-      engine: draft.engine,
-      transmission: value,
-    };
-    addVehicle(newVehicle);
-    draft.reset();
-    router.replace('/(tabs)/garage');
+    setSubmitting(true);
+    try {
+      await addVehicle({
+        year: draft.year,
+        make: draft.make,
+        model: draft.model,
+        trim: draft.trim,
+        engine: draft.engine,
+        transmission: value,
+      });
+      draft.reset();
+      router.replace('/(tabs)/garage');
+    } catch (e) {
+      Alert.alert('Could not add vehicle', e?.message || 'Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // Dots: i < (step - 1) → filled (completed steps); current step dot is unfilled.
@@ -214,6 +227,12 @@ export default function AddVehicleScreen() {
       </View>
 
       {/* Scrollable option list */}
+      {submitting ? (
+        <View style={styles.submittingWrap}>
+          <ActivityIndicator size="large" color={tokens.colors.primary} />
+        </View>
+      ) : null}
+
       <FlatList
         data={options}
         keyExtractor={(item) => item}
@@ -221,7 +240,8 @@ export default function AddVehicleScreen() {
           <OptionRow
             label={item}
             selected={currentValue === item}
-            onPress={() => handleSelect(item)}
+            onPress={() => !submitting && handleSelect(item)}
+            disabled={submitting}
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -316,5 +336,12 @@ const styles = StyleSheet.create({
     fontFamily: tokens.fonts.sans,
     fontSize: tokens.fontSize.md,
     color: tokens.colors.primary,
+  },
+  rowDisabled: {
+    opacity: 0.45,
+  },
+  submittingWrap: {
+    alignItems: 'center',
+    paddingVertical: tokens.spacing.md,
   },
 });

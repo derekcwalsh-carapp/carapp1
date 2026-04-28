@@ -1,34 +1,77 @@
 import { create } from 'zustand';
-import { createOrder } from '../api/ordersService';
-
-const MOCK_ADDRESS = {
-  name: 'Mike Sullivan',
-  line1: '1420 Oak Street',
-  city: 'Austin',
-  state: 'TX',
-  zip: '78704',
-};
-
-const MOCK_PAYMENT = { type: 'visa', last4: '4242' };
+import { fetchProfile } from '../api/profileService';
+import {
+  fetchAddresses,
+  fetchPaymentMethods,
+  createCheckout,
+} from '../api/checkoutService';
 
 const useCheckoutStore = create((set, get) => ({
-  address: MOCK_ADDRESS,
-  paymentMethod: MOCK_PAYMENT,
+  address: null,
+  paymentMethod: null,
+  addresses: [],
+  paymentMethods: [],
+  checkoutLoadStatus: 'idle',
+  checkoutError: null,
   placing: false,
   order: null,
 
-  placeOrder: async (cart) => {
+  fetchCheckoutData: async () => {
+    set({ checkoutLoadStatus: 'loading', checkoutError: null });
+    try {
+      const [, addresses, paymentMethods] = await Promise.all([
+        fetchProfile(),
+        fetchAddresses(),
+        fetchPaymentMethods(),
+      ]);
+      const defaultAddr =
+        addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
+      const defaultPm =
+        paymentMethods.find((p) => p.isDefault) ?? paymentMethods[0] ?? null;
+      set({
+        addresses,
+        paymentMethods,
+        address: defaultAddr,
+        paymentMethod: defaultPm,
+        checkoutLoadStatus: 'success',
+        checkoutError: null,
+      });
+    } catch (err) {
+      set({
+        checkoutLoadStatus: 'error',
+        checkoutError: err?.message ?? 'Failed to load checkout',
+      });
+    }
+  },
+
+  placeOrder: async () => {
+    const { address, paymentMethod } = get();
+    if (!address?.id || !paymentMethod?.id) return;
     if (get().placing) return;
     set({ placing: true, order: null });
     try {
-      const order = await createOrder(cart, get().address, get().paymentMethod);
-      set({ order, placing: false });
+      const data = await createCheckout(address.id, paymentMethod.id);
+      set({
+        order: {
+          id: data.orderId,
+          orderNumber: data.orderNumber,
+          status: data.status,
+          totalCents: data.totalCents,
+        },
+        placing: false,
+      });
     } catch {
       set({ placing: false });
     }
   },
 
-  reset: () => set({ placing: false, order: null }),
+  reset: () =>
+    set({
+      placing: false,
+      order: null,
+      checkoutLoadStatus: 'idle',
+      checkoutError: null,
+    }),
 }));
 
 export default useCheckoutStore;

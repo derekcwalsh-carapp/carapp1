@@ -1,27 +1,21 @@
-export function createCheckoutSession(tier, cycle) {
-  return new Promise((resolve) =>
-    setTimeout(() => resolve({ url: 'https://checkout.stripe.com/mock' }), 800)
-  );
-}
+import { Linking } from 'react-native';
+import client from './client.js';
 
-export function fetchSubscription() {
-  return new Promise((resolve) =>
-    setTimeout(
-      () =>
-        resolve({
-          tier: 'enthusiast',
-          billingCycle: 'monthly',
-          lookupsUsed: 32,
-          lookupsLimit: 50,
-          vehicleLimit: 5,
-          status: 'active',
-          currentPeriodEnd: '2026-05-15',
-        }),
-      400
-    )
-  );
-}
+export const fetchSubscription = () =>
+  client.get('/v1/subscription').then((r) => r.data.data);
 
-export function cancelSubscription() {
-  return new Promise((resolve) => setTimeout(resolve, 600));
-}
+export const createCheckoutSession = (tier, cycle) =>
+  client.post('/v1/subscription/checkout', { tier, cycle }).then((r) => r.data.data);
+
+export const cancelSubscription = () =>
+  client.post('/v1/subscription/cancel').then((r) => r.data.data);
+
+export const fetchInvoices = () =>
+  client.get('/v1/subscription/invoices').then((r) => r.data.data);
+
+export const openPortal = () =>
+  client.post('/v1/subscription/portal').then((r) => {
+    const url = r.data.data?.url;
+    if (url) return Linking.openURL(url);
+    return Promise.resolve();
+  });

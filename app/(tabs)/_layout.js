@@ -1,7 +1,11 @@
+import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import tokens from '../../src/theme/tokens';
+import useAuthStore from '../../src/stores/authStore';
+import useGarageStore from '../../src/stores/garageStore';
+import useCartStore from '../../src/stores/cartStore';
 
 function CameraTabIcon({ focused }) {
   return (
@@ -32,6 +36,31 @@ const styles = StyleSheet.create({
 });
 
 export default function TabLayout() {
+  const token = useAuthStore((s) => s.token);
+  const hydrate = useAuthStore((s) => s.hydrate);
+  const fetchVehicles = useGarageStore((s) => s.fetchVehicles);
+  const syncCart = useCartStore((s) => s.syncCart);
+  const clearCart = useCartStore((s) => s.clear);
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  useEffect(() => {
+    if (token) {
+      fetchVehicles();
+      syncCart();
+    } else {
+      useGarageStore.setState({
+        vehicles: [],
+        activeVehicleId: null,
+        status: 'idle',
+        error: null,
+      });
+      clearCart();
+    }
+  }, [token, fetchVehicles, syncCart, clearCart]);
+
   return (
     <Tabs
       screenOptions={{
@@ -84,10 +113,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{ href: null }}
-      />
+      <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen
         name="cart"
         options={{

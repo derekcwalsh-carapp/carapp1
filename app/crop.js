@@ -24,6 +24,7 @@ export default function CropScreen() {
   const { width: screenW } = useWindowDimensions();
   const photoUri = useCaptureStore((s) => s.photoUri);
   const setPhoto = useCaptureStore((s) => s.setPhoto);
+  const setCrop = useCaptureStore((s) => s.setCrop);
   const reset = useCaptureStore((s) => s.reset);
 
   const containerRef = useRef({ width: 0, height: 0 });
@@ -135,6 +136,13 @@ export default function CropScreen() {
       const imgW = Math.round(Math.min(imageSize.width - imgX, f.width / scale));
       const imgH = Math.round(Math.min(imageSize.height - imgY, f.height / scale));
 
+      setCrop({
+        x: imgX / imageSize.width,
+        y: imgY / imageSize.height,
+        width: imgW / imageSize.width,
+        height: imgH / imageSize.height,
+      });
+
       try {
         const { uri } = await manipulateAsync(
           photoUri,
@@ -145,6 +153,8 @@ export default function CropScreen() {
       } catch {
         // If crop coords land outside image bounds, proceed with original
       }
+    } else {
+      setCrop(null);
     }
 
     router.replace('/identifying');

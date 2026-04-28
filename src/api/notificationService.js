@@ -1,22 +1,14 @@
-export function fetchNotificationPreferences() {
-  return new Promise((resolve) =>
-    setTimeout(
-      () =>
-        resolve({
-          orderUpdates: true,
-          identifyComplete: true,
-          lookupWarning: true,
-          subscriptionEmail: true,
-          priceDropEmail: true,
-          marketingEmail: true,
-        }),
-      400
-    )
-  );
-}
+import client from './client.js';
 
-export function updateNotificationPreference(key, value) {
-  return new Promise((resolve) =>
-    setTimeout(() => resolve({ key, value }), 200)
-  );
-}
+export const fetchNotificationPreferences = () =>
+  client.get('/v1/notifications/preferences').then((r) => r.data.data);
+
+export const updateNotificationPreference = (key, value) =>
+  client
+    .put('/v1/notifications/preferences', { [key]: value })
+    .then((r) => r.data.data);
+
+export const registerPushToken = (token, deviceId) =>
+  client
+    .post('/v1/notifications/push-token', { token, deviceId })
+    .then((r) => r.data.data);

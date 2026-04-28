@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -17,6 +18,24 @@ import { labelSans } from '../src/theme/typography';
 import TopBar from '../src/components/TopBar';
 import PrimaryButton from '../src/components/PrimaryButton';
 import useAuthStore from '../src/stores/authStore';
+import * as profileService from '../src/api/profileService';
+import * as garageService from '../src/api/garageService';
+
+/** Public URL stored in DB after PUT to presigned URL (CDN + S3 object key). */
+function resolveAvatarPublicUri(uploadPayload, userId) {
+  if (uploadPayload?.imageUri && /^https?:\/\//i.test(uploadPayload.imageUri)) {
+    return uploadPayload.imageUri;
+  }
+  const key = uploadPayload?.key;
+  const base = process.env.EXPO_PUBLIC_CLOUDFRONT_USER_URL?.replace(/\/$/, '');
+  if (base && key) {
+    return `${base}/${key}`;
+  }
+  if (base && userId) {
+    return `${base}/users/${userId}/avatar.jpg`;
+  }
+  return null;
+}
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -28,20 +47,44 @@ export default function EditProfileScreen() {
   const [name, setName] = useState(originalName);
   const [avatarUri, setAvatarUri] = useState(originalAvatar);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const hasChanges = name.trim() !== originalName || avatarUri !== originalAvatar;
-  const canSave = hasChanges && name.trim().length > 0 && !saving;
+  const canSave = hasChanges && name.trim().length > 0 && !saving && !uploadingPhoto;
 
   async function handleChangePhoto() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 0.85,
     });
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      // TODO: upload selected image to S3 and store returned URL
-      setAvatarUri(result.assets[0].uri);
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const asset = result.assets[0];
+    const mime = asset.mimeType || 'image/jpeg';
+    const contentType = mime.includes('png') ? 'image/png' : 'image/jpeg';
+
+    setUploadingPhoto(true);
+    try {
+      const uploadMeta = await profileService.getAvatarUploadUrl(contentType);
+      await garageService.uploadVehicleImage(uploadMeta.uploadUrl, asset.uri, contentType);
+
+      const publicUri = resolveAvatarPublicUri(uploadMeta, user?.id);
+      if (!publicUri) {
+        Alert.alert(
+          'CDN URL missing',
+          'Set EXPO_PUBLIC_CLOUDFRONT_USER_URL in .env to match your user CDN base (same as backend CLOUDFRONT_USER_URL).'
+        );
+        return;
+      }
+
+      await updateProfile({ avatarUri: publicUri });
+      setAvatarUri(publicUri);
+    } catch (e) {
+      Alert.alert('Upload failed', e?.message || 'Could not update photo.');
+    } finally {
+      setUploadingPhoto(false);
     }
   }
 
@@ -76,8 +119,10 @@ export default function EditProfileScreen() {
               <Feather name="user" size={40} color={tokens.colors.textMuted} />
             </View>
           )}
-          <Pressable onPress={handleChangePhoto} hitSlop={8}>
-            <Text style={styles.changePhoto}>Change photo</Text>
+          <Pressable onPress={handleChangePhoto} hitSlop={8} disabled={uploadingPhoto}>
+            <Text style={styles.changePhoto}>
+              {uploadingPhoto ? 'Uploading…' : 'Change photo'}
+            </Text>
           </Pressable>
         </View>
 

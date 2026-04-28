@@ -1,7 +1,17 @@
-import { View, Text, StyleSheet, Image, Dimensions, StatusBar } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Dimensions,
+  StatusBar,
+  Platform,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { FontAwesome, Feather } from '@expo/vector-icons';
 import tokens from '../src/theme/tokens';
 import useAuthStore from '../src/stores/authStore';
@@ -11,17 +21,48 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 export default function SignIn() {
   const router = useRouter();
-  const signIn = useAuthStore((s) => s.signIn);
+  const signInWithApple = useAuthStore((s) => s.signInWithApple);
   const [loading, setLoading] = useState(null);
 
-  const handleSignIn = async (provider) => {
-    setLoading(provider);
+  const handleApple = async () => {
+    if (Platform.OS !== 'ios') {
+      Alert.alert('Apple Sign In', 'Sign in with Apple is available on iOS.');
+      return;
+    }
+    const available = await AppleAuthentication.isAvailableAsync();
+    if (!available) {
+      Alert.alert('Apple Sign In', 'Apple Sign In is not available on this device.');
+      return;
+    }
+
+    setLoading('apple');
     try {
-      await signIn(provider);
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) {
+        throw new Error('Apple did not return an identity token.');
+      }
+      await signInWithApple(credential.identityToken);
       router.replace('/(tabs)');
+    } catch (e) {
+      if (e?.code === 'ERR_REQUEST_CANCELED' || e?.code === 'ERR_CANCELED') return;
+      Alert.alert('Sign in failed', e?.message || 'Unable to complete Apple Sign In.');
     } finally {
       setLoading(null);
     }
+  };
+
+  const handleGoogle = () => {
+    // TODO: Wire Google Sign-In via expo-auth-session / Google OAuth — needs client IDs and redirect URI.
+    Alert.alert('Coming soon', 'Google sign-in will be available in a future update.');
+  };
+
+  const handleEmail = () => {
+    router.push('/email-signin');
   };
 
   const anyLoading = loading !== null;
@@ -48,7 +89,7 @@ export default function SignIn() {
         <View style={styles.buttons}>
           <PrimaryButton
             label="Continue with Apple"
-            onPress={() => handleSignIn('apple')}
+            onPress={handleApple}
             fullWidth
             loading={loading === 'apple'}
             disabled={anyLoading}
@@ -58,7 +99,7 @@ export default function SignIn() {
           />
           <PrimaryButton
             label="Continue with Google"
-            onPress={() => handleSignIn('google')}
+            onPress={handleGoogle}
             fullWidth
             variant="outlined"
             loading={loading === 'google'}
@@ -69,7 +110,7 @@ export default function SignIn() {
           />
           <PrimaryButton
             label="Continue with email"
-            onPress={() => handleSignIn('email')}
+            onPress={handleEmail}
             fullWidth
             variant="outlined"
             loading={loading === 'email'}

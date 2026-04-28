@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 import tokens from '../../src/theme/tokens';
 import FitmentBadge from '../../src/components/FitmentBadge';
@@ -56,16 +56,37 @@ function Snackbar({ opacity, message }) {
 }
 
 export default function ProductDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id: rawId } = useLocalSearchParams();
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const router = useRouter();
 
-  const product = useProductsStore((s) => s.byId(id));
+  const product = useProductsStore((s) => (id ? s.cache[id] : null));
+  const fetchProduct = useProductsStore((s) => s.fetchProduct);
   const { vehicles, activeVehicleId } = useGarageStore();
   const activeVehicle = vehicles.find((v) => v.id === activeVehicleId);
   const { addItem } = useCartStore();
   const { toggleSave, isSaved } = useSavedStore();
 
+  const [loadState, setLoadState] = useState('loading');
+
   const saved = isSaved(id);
+
+  useEffect(() => {
+    if (!id) {
+      setLoadState('notfound');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadState('loading');
+      const p = await fetchProduct(id, { vehicleId: activeVehicleId });
+      if (cancelled) return;
+      setLoadState(p ? 'ready' : 'notfound');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, activeVehicleId, fetchProduct]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [openSections, setOpenSections] = useState({});
@@ -101,17 +122,32 @@ export default function ProductDetailScreen() {
           { text: 'Cancel', style: 'cancel' },
           {
             text: 'Add anyway',
-            onPress: () => { addItem(product); showSnackbar('Added to cart'); },
+            onPress: () => {
+              void addItem(product, 1, true);
+              showSnackbar('Added to cart');
+            },
           },
         ]
       );
     } else {
       // Preference: stay on screen with snackbar feedback.
       // To navigate to cart instead: router.push('/cart')
-      addItem(product);
+      void addItem(product);
       showSnackbar('Added to cart');
     }
   };
+
+  if (loadState === 'loading') {
+    return (
+      <SafeAreaView style={styles.notFound}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.notFoundBack}>
+          <Feather name="arrow-left" size={22} color={tokens.colors.text} />
+          <Text style={styles.notFoundBackLabel}>Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.notFoundText}>Loading…</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!product) {
     return (

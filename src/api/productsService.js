@@ -1,258 +1,66 @@
-const MOCK_GROUPS = {
-  exact_replacement: {
-    label: 'Exact Replacement',
-    explainer: 'Matches your vehicle precisely.',
-    products: [
-      {
-        id: 'er1',
-        supplier: 'Summit Racing',
-        title: 'Holley 0-80457S 600 CFM',
-        price: 389,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.8,
-        shippingEstimate: '2–3 days',
-      },
-      {
-        id: 'er2',
-        supplier: 'Jegs',
-        title: 'Edelbrock 1406 Performer',
-        price: 412,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.7,
-        shippingEstimate: '3–5 days',
-      },
-      {
-        id: 'er3',
-        supplier: 'Summit Racing',
-        title: 'Holley 0-1850S 600 CFM',
-        price: 359,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.6,
-        shippingEstimate: '2–3 days',
-      },
-    ],
-  },
-  performance_upgrade: {
-    label: 'Performance Upgrade',
-    explainer: 'More power, same fitment window.',
-    products: [
-      {
-        id: 'pu1',
-        supplier: 'Summit Racing',
-        title: 'Holley Ultra HP 750 CFM',
-        price: 549,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.9,
-        shippingEstimate: '2–3 days',
-      },
-      {
-        id: 'pu2',
-        supplier: 'Speedway Motors',
-        title: 'Quick Fuel HR-680-VS',
-        price: 495,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'requires_mod',
-        rating: 4.5,
-        shippingEstimate: '4–6 days',
-      },
-      {
-        id: 'pu3',
-        supplier: 'Summit Racing',
-        title: 'Holley Terminator EFI',
-        price: 899,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.9,
-        shippingEstimate: '2–3 days',
-      },
-      {
-        id: 'pu4',
-        supplier: 'Jegs',
-        title: 'Edelbrock 1812 Thunder Series',
-        price: 672,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'likely',
-        rating: 4.6,
-        shippingEstimate: '3–5 days',
-      },
-      {
-        id: 'pu5',
-        supplier: 'Summit Racing',
-        title: 'Barry Grant Speed Demon 750',
-        price: 485,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.7,
-        shippingEstimate: '2–4 days',
-      },
-    ],
-  },
-  oem_style: {
-    label: 'OEM-Style',
-    explainer: 'Factory-spec look and function.',
-    products: [
-      {
-        id: 'oem1',
-        supplier: 'Classic Industries',
-        title: 'Rochester Quadrajet 17057253',
-        price: 625,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.8,
-        shippingEstimate: '5–7 days',
-      },
-      {
-        id: 'oem2',
-        supplier: "Eckler's Chevelle",
-        title: 'GM Remanufactured Carburetor',
-        price: 549,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.5,
-        shippingEstimate: '5–7 days',
-      },
-    ],
-  },
-  best_value: {
-    label: 'Best Value',
-    explainer: 'Top-rated picks under budget.',
-    products: [
-      {
-        id: 'bv1',
-        supplier: 'Jegs',
-        title: 'Demon 625 CFM Street',
-        price: 329,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.6,
-        shippingEstimate: '3–5 days',
-      },
-      {
-        id: 'bv2',
-        supplier: 'Summit Racing',
-        title: 'Proform 67200 Main Body',
-        price: 299,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.4,
-        shippingEstimate: '2–3 days',
-      },
-      {
-        id: 'bv3',
-        supplier: 'Rock Auto',
-        title: 'Motorcraft 2100 Carburetor',
-        price: 189,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'likely',
-        rating: 4.2,
-        shippingEstimate: '4–6 days',
-      },
-      {
-        id: 'bv4',
-        supplier: 'Summit Racing',
-        title: "Willy's Carb 600 CFM Street",
-        price: 245,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.5,
-        shippingEstimate: '2–3 days',
-      },
-    ],
-  },
-  similar: {
-    label: 'Similar Options',
-    explainer: 'Same category, different makes.',
-    products: [
-      {
-        id: 'sim1',
-        supplier: 'Summit Racing',
-        title: 'Edelbrock AVS2 650 CFM',
-        price: 459,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.7,
-        shippingEstimate: '2–3 days',
-      },
-      {
-        id: 'sim2',
-        supplier: 'Summit Racing',
-        title: 'Holley 0-80508S 750 CFM',
-        price: 389,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'likely',
-        rating: 4.6,
-        shippingEstimate: '2–3 days',
-      },
-      {
-        id: 'sim3',
-        supplier: 'Speedway Motors',
-        title: 'Quick Fuel Q-750-VS',
-        price: 425,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'requires_mod',
-        rating: 4.5,
-        shippingEstimate: '4–6 days',
-      },
-      {
-        id: 'sim4',
-        supplier: 'Summit Racing',
-        title: 'Demon Road Demon Jr 625 CFM',
-        price: 379,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.6,
-        shippingEstimate: '2–4 days',
-      },
-      {
-        id: 'sim5',
-        supplier: 'Summit Racing',
-        title: 'AED Competition 650 CFM',
-        price: 349,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'likely',
-        rating: 4.4,
-        shippingEstimate: '3–5 days',
-      },
-      {
-        id: 'sim6',
-        supplier: 'Jegs',
-        title: 'Edelbrock 1407 Performer 750',
-        price: 469,
-        currency: 'USD',
-        imageUri: 'https://placehold.co/96x96/e4e4df/6b6b66?text=Part',
-        fitmentLabel: 'confirmed',
-        rating: 4.7,
-        shippingEstimate: '3–5 days',
-      },
-    ],
-  },
-};
+import client from './client.js';
 
-export function fetchGroupedResults(_params) {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(MOCK_GROUPS), 800);
+/** Normalize API product shapes (price + priceCents) for UI using dollar `price`. */
+export function mapProduct(raw) {
+  if (!raw || typeof raw !== 'object') return raw;
+  const hasPrice = typeof raw.price === 'number' && !Number.isNaN(raw.price);
+  const hasCents = typeof raw.priceCents === 'number' && !Number.isNaN(raw.priceCents);
+  const price = hasPrice ? raw.price : hasCents ? raw.priceCents / 100 : undefined;
+  const priceCents =
+    typeof raw.priceCents === 'number'
+      ? raw.priceCents
+      : typeof price === 'number'
+        ? Math.round(price * 100)
+        : undefined;
+
+  let shippingEstimate = raw.shippingEstimate;
+  if (
+    shippingEstimate == null &&
+    (raw.shippingEstimateMin != null || raw.shippingEstimateMax != null)
+  ) {
+    const lo = raw.shippingEstimateMin;
+    const hi = raw.shippingEstimateMax;
+    if (lo != null && hi != null && lo !== hi) {
+      shippingEstimate = `${lo}–${hi} days`;
+    } else if (lo != null) {
+      shippingEstimate = `${lo}+ days`;
+    }
+  }
+
+  return {
+    ...raw,
+    price,
+    priceCents,
+    shippingEstimate,
+  };
+}
+
+function mapGroupedGroups(groups) {
+  const out = {};
+  for (const [key, group] of Object.entries(groups || {})) {
+    out[key] = {
+      ...group,
+      products: (group.products || []).map(mapProduct),
+    };
+  }
+  return out;
+}
+
+export async function fetchGroupedResults(params) {
+  const res = await client.get('/v1/products/grouped', { params });
+  return mapGroupedGroups(res.data.data.groups);
+}
+
+export async function fetchProduct(id, options = {}) {
+  const { vehicleId } = options;
+  const res = await client.get(`/v1/products/${id}`, {
+    params: vehicleId ? { vehicleId } : undefined,
   });
+  return mapProduct(res.data.data);
+}
+
+export async function searchProducts(query, category) {
+  const res = await client.get('/v1/search', { params: { q: query, category } });
+  const rows = res.data.data || [];
+  return rows.map(mapProduct);
 }

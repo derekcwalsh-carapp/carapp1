@@ -38,7 +38,8 @@ export default function ResultsScreen() {
   const { groups, status, fetchForSession } = useProductsStore();
   const result = useIdentifyStore((s) => s.result);
   const photoUri = useCaptureStore((s) => s.photoUri);
-  const intent = useIntentStore();
+  const intent = useIntentStore((s) => s.type);
+  const preference = useIntentStore((s) => s.preference);
   const { vehicles, activeVehicleId } = useGarageStore();
   const itemCount = useCartStore((s) => s.itemCount);
 
@@ -47,9 +48,12 @@ export default function ResultsScreen() {
 
   const [expanded, setExpanded] = useState({});
 
+  const sessionId = result?.sessionId;
+
   useEffect(() => {
-    fetchForSession(result?.sessionId, activeVehicleId, intent);
-  }, []);
+    if (!sessionId) return;
+    fetchForSession(sessionId, activeVehicleId, { intent, preference });
+  }, [sessionId, activeVehicleId, intent, preference, fetchForSession]);
 
   useEffect(() => {
     if (status !== 'success') return;

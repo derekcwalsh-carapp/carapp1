@@ -1,4 +1,15 @@
-import { SafeAreaView, ScrollView, View, Text, Pressable, Alert, StyleSheet } from 'react-native';
+import { useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import {
+  SafeAreaView,
+  ScrollView,
+  View,
+  Text,
+  Pressable,
+  Alert,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import TopBar from '../../src/components/TopBar';
@@ -10,9 +21,22 @@ import tokens from '../../src/theme/tokens';
 
 export default function GarageScreen() {
   const router = useRouter();
-  const { vehicles, activeVehicleId, setActive, deleteVehicle } = useGarageStore();
+  const vehicles = useGarageStore((s) => s.vehicles);
+  const activeVehicleId = useGarageStore((s) => s.activeVehicleId);
+  const status = useGarageStore((s) => s.status);
+  const error = useGarageStore((s) => s.error);
+  const fetchVehicles = useGarageStore((s) => s.fetchVehicles);
+  const setActive = useGarageStore((s) => s.setActive);
+  const deleteVehicle = useGarageStore((s) => s.deleteVehicle);
+
   const vehicleLimit = useSubscriptionStore((s) => s.vehicleLimit);
   const showUpgrade = useUpgradeModalStore((s) => s.show);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchVehicles();
+    }, [fetchVehicles])
+  );
 
   function handleLongPress(vehicle) {
     Alert.alert(
@@ -21,7 +45,8 @@ export default function GarageScreen() {
       [
         {
           text: 'Edit',
-          onPress: () => router.push({ pathname: '/garage/edit', params: { vehicleId: vehicle.id } }),
+          onPress: () =>
+            router.push({ pathname: '/garage/edit', params: { vehicleId: vehicle.id } }),
         },
         {
           text: 'Delete',
@@ -32,7 +57,13 @@ export default function GarageScreen() {
               {
                 text: 'Delete',
                 style: 'destructive',
-                onPress: () => deleteVehicle(vehicle.id),
+                onPress: async () => {
+                  try {
+                    await deleteVehicle(vehicle.id);
+                  } catch (e) {
+                    Alert.alert('Error', e?.message || 'Could not delete vehicle.');
+                  }
+                },
               },
             ]),
         },
@@ -40,6 +71,8 @@ export default function GarageScreen() {
       ]
     );
   }
+
+  const loading = status === 'loading';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -69,21 +102,40 @@ export default function GarageScreen() {
 
       <Text style={styles.hint}>Tap a vehicle to set it as active.</Text>
 
-      <ScrollView
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-      >
-        {vehicles.map((vehicle) => (
-          <VehicleCard
-            key={vehicle.id}
-            vehicle={vehicle}
-            variant="garage"
-            isActive={vehicle.id === activeVehicleId}
-            onPress={() => setActive(vehicle.id)}
-            onLongPress={() => handleLongPress(vehicle)}
-          />
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={tokens.colors.primary} />
+        </View>
+      ) : status === 'error' ? (
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={() => fetchVehicles()} style={styles.retryBtn}>
+            <Text style={styles.retryLabel}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        >
+          {vehicles.map((vehicle) => (
+            <VehicleCard
+              key={vehicle.id}
+              vehicle={vehicle}
+              variant="garage"
+              isActive={vehicle.id === activeVehicleId}
+              onPress={async () => {
+                try {
+                  await setActive(vehicle.id);
+                } catch (e) {
+                  Alert.alert('Error', e?.message || 'Could not update active vehicle.');
+                }
+              }}
+              onLongPress={() => handleLongPress(vehicle)}
+            />
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -132,5 +184,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.xl,
     paddingBottom: tokens.spacing.xxxl,
     gap: tokens.spacing.lg,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: tokens.spacing.xl,
+  },
+  errorText: {
+    fontFamily: tokens.fonts.sans,
+    fontSize: tokens.fontSize.md,
+    color: tokens.colors.danger,
+    textAlign: 'center',
+    marginBottom: tokens.spacing.md,
+  },
+  retryBtn: {
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.lg,
+  },
+  retryLabel: {
+    fontFamily: tokens.fonts.sansMedium,
+    fontSize: tokens.fontSize.md,
+    color: tokens.colors.primary,
   },
 });

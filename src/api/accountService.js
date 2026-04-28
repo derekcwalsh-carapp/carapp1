@@ -1,2 +1,3 @@
-export const deleteAccount = () =>
-  new Promise((resolve) => setTimeout(() => resolve({ ok: true }), 1000));
+import { deleteAccount as profileDeleteAccount } from './profileService.js';
+
+export const deleteAccount = () => profileDeleteAccount();
