@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -32,12 +32,6 @@ function formatExpiry(month, year) {
   const mm = String(month).padStart(2, '0');
   const yy = String(year).slice(-2);
   return `${mm}/${yy}`;
-}
-
-function openAddCard() {
-  // TODO: open Stripe's card collection UI via a SetupIntent or
-  // redirect to Stripe Customer Portal.
-  console.log('TODO: open Stripe card collection');
 }
 
 function PaymentMethodCard({ method, onSetDefault, onRemove }) {
@@ -78,6 +72,7 @@ function PaymentMethodCard({ method, onSetDefault, onRemove }) {
 export default function PaymentMethodsScreen() {
   const router = useRouter();
   const { methods, fetchMethods, deleteMethod, setDefault } = usePaymentStore();
+  const [working, setWorking] = useState(false);
 
   useEffect(() => {
     fetchMethods();
@@ -86,8 +81,32 @@ export default function PaymentMethodsScreen() {
   const handleRemove = (id) => {
     Alert.alert('Remove card?', 'You can add it again later from settings.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => deleteMethod(id) },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          setWorking(true);
+          try {
+            await deleteMethod(id);
+          } catch (e) {
+            Alert.alert('Error', e?.message || 'Could not remove card. Please try again.');
+          } finally {
+            setWorking(false);
+          }
+        },
+      },
     ]);
+  };
+
+  const handleSetDefault = async (id) => {
+    setWorking(true);
+    try {
+      await setDefault(id);
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'Could not update default card. Please try again.');
+    } finally {
+      setWorking(false);
+    }
   };
 
   const isEmpty = methods.length === 0;
@@ -106,7 +125,7 @@ export default function PaymentMethodsScreen() {
           title="No payment methods"
           subtitle="Add a card to enable in-app purchasing."
           primaryLabel="Add card"
-          onPrimaryPress={openAddCard}
+          onPrimaryPress={() => router.push('/add-card')}
         />
       ) : (
         <FlatList
@@ -121,8 +140,8 @@ export default function PaymentMethodsScreen() {
           renderItem={({ item }) => (
             <PaymentMethodCard
               method={item}
-              onSetDefault={() => setDefault(item.id)}
-              onRemove={() => handleRemove(item.id)}
+              onSetDefault={() => !working && handleSetDefault(item.id)}
+              onRemove={() => !working && handleRemove(item.id)}
             />
           )}
           ListFooterComponent={
@@ -132,7 +151,7 @@ export default function PaymentMethodsScreen() {
                 variant="outlined"
                 fullWidth
                 iconLeft={<Feather name="plus" size={18} color={tokens.colors.primary} />}
-                onPress={openAddCard}
+                onPress={() => router.push('/add-card')}
               />
               <Text style={styles.note}>
                 Cards are stored securely with Stripe. CarLens never sees your full card number.

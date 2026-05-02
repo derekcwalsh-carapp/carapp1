@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import client from './client.js';
 
 function normalizeYear(year) {
@@ -19,7 +20,7 @@ export async function addVehicle(vehicle) {
     engine: vehicle.engine ?? null,
     transmission: vehicle.transmission ?? null,
     modsNotes: vehicle.modsNotes ?? null,
-    imageUri: vehicle.imageUri ?? null,
+    ...(vehicle.imageUri != null && { imageUri: vehicle.imageUri }),
   };
   const { data } = await client.post('/v1/garage/vehicles', body);
   return data?.data;
@@ -64,18 +65,17 @@ export async function getImageUploadUrl(vehicleId, contentType = 'image/jpeg') {
 }
 
 /**
- * PUT binary body to a presigned S3 URL (vehicle hero image).
+ * PUT a local file URI to a presigned S3 URL (or dev-uploads endpoint).
+ * Uses expo-file-system legacy uploadAsync for stable binary uploads in Expo SDK 54.
  */
 export async function uploadVehicleImage(uploadUrl, fileUri, contentType = 'image/jpeg') {
-  const fileResponse = await fetch(fileUri);
-  const blob = await fileResponse.blob();
-  const res = await fetch(uploadUrl, {
-    method: 'PUT',
+  const binaryUploadType = FileSystem.FileSystemUploadType?.BINARY_CONTENT ?? 'binaryContent';
+  const result = await FileSystem.uploadAsync(uploadUrl, fileUri, {
+    httpMethod: 'PUT',
+    uploadType: binaryUploadType,
     headers: { 'Content-Type': contentType },
-    body: blob,
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Upload failed (${res.status}) ${text}`.trim());
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`Upload failed (${result.status})`);
   }
 }

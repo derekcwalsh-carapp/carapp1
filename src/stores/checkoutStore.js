@@ -65,6 +65,19 @@ const useCheckoutStore = create((set, get) => ({
     }
   },
 
+  selectAddress: (addressId) =>
+    set((state) => {
+      const selected = state.addresses.find((a) => a.id === addressId) ?? null;
+      return { address: selected };
+    }),
+
+  selectPaymentMethod: (paymentMethodId) =>
+    set((state) => {
+      const selected =
+        state.paymentMethods.find((method) => method.id === paymentMethodId) ?? null;
+      return { paymentMethod: selected };
+    }),
+
   reset: () =>
     set({
       placing: false,

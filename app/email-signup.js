@@ -17,29 +17,46 @@ import TopBar from '../src/components/TopBar';
 import PrimaryButton from '../src/components/PrimaryButton';
 import useAuthStore from '../src/stores/authStore';
 
-export default function EmailSignIn() {
+export default function EmailSignUp() {
   const router = useRouter();
-  const signInWithEmail = useAuthStore((s) => s.signInWithEmail);
+  const signUpWithEmail = useAuthStore((s) => s.signUpWithEmail);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const onSignIn = async () => {
+  const onSignUp = async () => {
     const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      setError('Please enter your email and password.');
+    if (!trimmedEmail) {
+      setError('Please enter your email address.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
     setError('');
     setLoading(true);
     try {
-      await signInWithEmail(trimmedEmail, password);
-      router.replace('/(tabs)');
+      const result = await signUpWithEmail(trimmedEmail, password);
+      router.push({
+        pathname: '/email-signup-verify',
+        params: {
+          email: trimmedEmail,
+          pendingToken: result.pendingToken,
+          ...(result.devOtp ? { devOtp: result.devOtp } : {}),
+        },
+      });
     } catch (e) {
-      setError(e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || 'Sign in failed. Please try again.');
+      setError(e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || 'Sign up failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -57,7 +74,7 @@ export default function EmailSignIn() {
           titleNode={
             <View style={styles.topTitleWrap}>
               <Text style={styles.topTitle} numberOfLines={1}>
-                Sign in with email
+                Create account
               </Text>
             </View>
           }
@@ -67,6 +84,11 @@ export default function EmailSignIn() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scroll}
         >
+          <Text style={styles.headline}>Join CarLens</Text>
+          <Text style={styles.subline}>
+            Save your garage, track orders, and find the right parts.
+          </Text>
+
           <Text style={styles.label}>Email</Text>
           <TextInput
             style={styles.input}
@@ -87,15 +109,13 @@ export default function EmailSignIn() {
               style={styles.passwordInput}
               value={password}
               onChangeText={setPassword}
-              placeholder="Your password"
+              placeholder="At least 8 characters"
               placeholderTextColor={tokens.colors.textMuted}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
-              autoComplete="current-password"
+              autoComplete="new-password"
               editable={!loading}
-              onSubmitEditing={onSignIn}
-              returnKeyType="go"
             />
             <Pressable
               onPress={() => setShowPassword((v) => !v)}
@@ -110,39 +130,54 @@ export default function EmailSignIn() {
             </Pressable>
           </View>
 
-          <Pressable
-            onPress={() => router.push('/forgot-password')}
-            style={styles.forgotWrap}
-            disabled={loading}
-          >
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </Pressable>
+          <Text style={styles.label}>Confirm password</Text>
+          <View style={[styles.passwordWrap, styles.confirmWrap]}>
+            <TextInput
+              style={styles.passwordInput}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Re-enter your password"
+              placeholderTextColor={tokens.colors.textMuted}
+              secureTextEntry={!showConfirm}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              editable={!loading}
+              onSubmitEditing={onSignUp}
+              returnKeyType="go"
+            />
+            <Pressable
+              onPress={() => setShowConfirm((v) => !v)}
+              style={styles.eyeBtn}
+              hitSlop={8}
+            >
+              <Feather
+                name={showConfirm ? 'eye-off' : 'eye'}
+                size={18}
+                color={tokens.colors.textMuted}
+              />
+            </Pressable>
+          </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <PrimaryButton
-            label="Sign In"
-            onPress={onSignIn}
+            label="Create Account"
+            onPress={onSignUp}
             fullWidth
             loading={loading}
             disabled={loading}
-            style={styles.signInBtn}
+            style={styles.signUpBtn}
           />
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
           <Pressable
-            onPress={() => router.push('/email-signup')}
+            onPress={() => router.back()}
             disabled={loading}
-            style={styles.createWrap}
+            style={styles.signInWrap}
           >
-            <Text style={styles.createText}>
-              Don't have an account?{' '}
-              <Text style={styles.createLink}>Create one</Text>
+            <Text style={styles.signInText}>
+              Already have an account?{' '}
+              <Text style={styles.signInLink}>Sign in</Text>
             </Text>
           </Pressable>
         </ScrollView>
@@ -175,6 +210,19 @@ const styles = StyleSheet.create({
     fontSize: tokens.fontSize.lg,
     color: tokens.colors.text,
   },
+  headline: {
+    fontFamily: tokens.fonts.serifBold,
+    fontSize: tokens.fontSize.xxl,
+    color: tokens.colors.text,
+    marginBottom: tokens.spacing.sm,
+  },
+  subline: {
+    fontFamily: tokens.fonts.sans,
+    fontSize: tokens.fontSize.md,
+    color: tokens.colors.textMuted,
+    lineHeight: tokens.fontSize.md * 1.5,
+    marginBottom: tokens.spacing.xl,
+  },
   label: {
     fontFamily: tokens.fonts.sansMedium,
     fontSize: tokens.fontSize.sm,
@@ -198,7 +246,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.colors.border,
     borderRadius: tokens.radius.md,
-    marginBottom: tokens.spacing.sm,
+    marginBottom: tokens.spacing.lg,
+  },
+  confirmWrap: {
+    marginBottom: tokens.spacing.lg,
   },
   passwordInput: {
     flex: 1,
@@ -212,51 +263,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.md,
     paddingVertical: tokens.spacing.md,
   },
-  forgotWrap: {
-    alignSelf: 'flex-end',
-    marginBottom: tokens.spacing.lg,
-    marginTop: tokens.spacing.xs,
-  },
-  forgotText: {
-    fontFamily: tokens.fonts.sansMedium,
-    fontSize: tokens.fontSize.sm,
-    color: tokens.colors.primary,
-  },
   error: {
     fontFamily: tokens.fonts.sans,
     fontSize: tokens.fontSize.sm,
     color: tokens.colors.danger,
     marginBottom: tokens.spacing.md,
   },
-  signInBtn: {
+  signUpBtn: {
     marginTop: tokens.spacing.xs,
     marginBottom: tokens.spacing.xl,
   },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: tokens.spacing.xl,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: tokens.colors.border,
-  },
-  dividerText: {
-    fontFamily: tokens.fonts.sans,
-    fontSize: tokens.fontSize.sm,
-    color: tokens.colors.textMuted,
-    marginHorizontal: tokens.spacing.md,
-  },
-  createWrap: {
+  signInWrap: {
     alignItems: 'center',
   },
-  createText: {
+  signInText: {
     fontFamily: tokens.fonts.sans,
     fontSize: tokens.fontSize.md,
     color: tokens.colors.textMuted,
   },
-  createLink: {
+  signInLink: {
     fontFamily: tokens.fonts.sansMedium,
     color: tokens.colors.primary,
   },

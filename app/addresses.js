@@ -157,6 +157,7 @@ export default function AddressesScreen() {
     useAddressStore();
   const [formState, setFormState] = useState({ showForm: false, editingId: null });
   const [formInitial, setFormInitial] = useState(EMPTY_FORM);
+  const [working, setWorking] = useState(false);
 
   useEffect(() => {
     fetchAddresses();
@@ -183,20 +184,69 @@ export default function AddressesScreen() {
 
   const closeForm = () => setFormState({ showForm: false, editingId: null });
 
-  const handleSave = (values) => {
-    if (formState.editingId) {
-      updateAddress(formState.editingId, values);
-    } else {
-      addAddress(values);
+  const handleSave = async (values) => {
+    if (working) return;
+    setWorking(true);
+    try {
+      if (formState.editingId) {
+        await updateAddress(formState.editingId, values);
+      } else {
+        await addAddress(values);
+      }
+      closeForm();
+    } catch (e) {
+      const msg =
+        e?.response?.data?.error?.message ??
+        e?.response?.data?.message ??
+        e?.message ??
+        'Could not save address. Please try again.';
+      Alert.alert('Address error', msg);
+    } finally {
+      setWorking(false);
     }
-    closeForm();
   };
 
   const handleDelete = (id) => {
     Alert.alert('Delete address?', 'This action cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteAddress(id) },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if (working) return;
+          setWorking(true);
+          try {
+            await deleteAddress(id);
+          } catch (e) {
+            const msg =
+              e?.response?.data?.error?.message ??
+              e?.response?.data?.message ??
+              e?.message ??
+              'Could not delete address. Please try again.';
+            Alert.alert('Address error', msg);
+          } finally {
+            setWorking(false);
+          }
+        },
+      },
     ]);
+  };
+
+  const handleSetDefault = async (id) => {
+    if (working) return;
+    setWorking(true);
+    try {
+      await setDefault(id);
+    } catch (e) {
+      const msg =
+        e?.response?.data?.error?.message ??
+        e?.response?.data?.message ??
+        e?.message ??
+        'Could not set default address. Please try again.';
+      Alert.alert('Address error', msg);
+    } finally {
+      setWorking(false);
+    }
   };
 
   const isEmpty = addresses.length === 0 && !formState.showForm;
@@ -242,7 +292,7 @@ export default function AddressesScreen() {
               <AddressCard
                 address={item}
                 onEdit={() => openEditForm(item)}
-                onSetDefault={() => setDefault(item.id)}
+                onSetDefault={() => handleSetDefault(item.id)}
                 onDelete={() => handleDelete(item.id)}
               />
             )}

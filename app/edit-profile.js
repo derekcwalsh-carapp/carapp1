@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   Image,
   Pressable,
@@ -9,31 +9,41 @@ import {
   TextInput,
   View,
   Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import tokens from '../src/theme/tokens';
-import { labelSans } from '../src/theme/typography';
-import TopBar from '../src/components/TopBar';
-import PrimaryButton from '../src/components/PrimaryButton';
-import useAuthStore from '../src/stores/authStore';
-import * as profileService from '../src/api/profileService';
-import * as garageService from '../src/api/garageService';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import tokens from "../src/theme/tokens";
+import { labelSans } from "../src/theme/typography";
+import TopBar from "../src/components/TopBar";
+import PrimaryButton from "../src/components/PrimaryButton";
+import useAuthStore from "../src/stores/authStore";
+import * as profileService from "../src/api/profileService";
+import * as garageService from "../src/api/garageService";
 
 /** Public URL stored in DB after PUT to presigned URL (CDN + S3 object key). */
-function resolveAvatarPublicUri(uploadPayload, userId) {
+function resolveAvatarPublicUri(uploadPayload) {
+  if (
+    uploadPayload?.s3ObjectUrl &&
+    /^https?:\/\//i.test(uploadPayload.s3ObjectUrl)
+  ) {
+    return uploadPayload.s3ObjectUrl;
+  }
   if (uploadPayload?.imageUri && /^https?:\/\//i.test(uploadPayload.imageUri)) {
     return uploadPayload.imageUri;
   }
+  if (
+    uploadPayload?.cloudFrontImageUri &&
+    /^https?:\/\//i.test(uploadPayload.cloudFrontImageUri)
+  ) {
+    return uploadPayload.cloudFrontImageUri;
+  }
   const key = uploadPayload?.key;
-  const base = process.env.EXPO_PUBLIC_CLOUDFRONT_USER_URL?.replace(/\/$/, '');
+  const base = process.env.EXPO_PUBLIC_CLOUDFRONT_USER_URL?.replace(/\/$/, "");
   if (base && key) {
     return `${base}/${key}`;
   }
-  if (base && userId) {
-    return `${base}/users/${userId}/avatar.jpg`;
-  }
+  // Avoid guessing a static avatar filename; stale or mismatched keys can fail to render.
   return null;
 }
 
@@ -41,16 +51,19 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuthStore();
 
-  const originalName = user?.name ?? '';
+  const originalName = user?.name ?? "";
   const originalAvatar = user?.avatarUri ?? null;
 
   const [name, setName] = useState(originalName);
   const [avatarUri, setAvatarUri] = useState(originalAvatar);
+  const [pendingCanonicalUri, setPendingCanonicalUri] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  const hasChanges = name.trim() !== originalName || avatarUri !== originalAvatar;
-  const canSave = hasChanges && name.trim().length > 0 && !saving && !uploadingPhoto;
+  const hasChanges =
+    name.trim() !== originalName || pendingCanonicalUri !== null;
+  const canSave =
+    hasChanges && name.trim().length > 0 && !saving && !uploadingPhoto;
 
   async function handleChangePhoto() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -62,27 +75,33 @@ export default function EditProfileScreen() {
     if (result.canceled || !result.assets?.[0]?.uri) return;
 
     const asset = result.assets[0];
-    const mime = asset.mimeType || 'image/jpeg';
-    const contentType = mime.includes('png') ? 'image/png' : 'image/jpeg';
+    const mime = asset.mimeType || "image/jpeg";
+    const contentType = mime.includes("png") ? "image/png" : "image/jpeg";
 
     setUploadingPhoto(true);
     try {
       const uploadMeta = await profileService.getAvatarUploadUrl(contentType);
-      await garageService.uploadVehicleImage(uploadMeta.uploadUrl, asset.uri, contentType);
+      await garageService.uploadVehicleImage(
+        uploadMeta.uploadUrl,
+        asset.uri,
+        contentType,
+      );
 
-      const publicUri = resolveAvatarPublicUri(uploadMeta, user?.id);
+      const publicUri = resolveAvatarPublicUri(uploadMeta);
       if (!publicUri) {
         Alert.alert(
-          'CDN URL missing',
-          'Set EXPO_PUBLIC_CLOUDFRONT_USER_URL in .env to match your user CDN base (same as backend CLOUDFRONT_USER_URL).'
+          "Photo upload unavailable",
+          "Cloud storage is not configured in this environment. Your name and other changes can still be saved.",
         );
         return;
       }
 
-      await updateProfile({ avatarUri: publicUri });
-      setAvatarUri(publicUri);
+      // Show local device file immediately — no network/CloudFront dependency.
+      setAvatarUri(asset.uri);
+      // Remember canonical URL to write to DB when the user taps Save.
+      setPendingCanonicalUri(publicUri);
     } catch (e) {
-      Alert.alert('Upload failed', e?.message || 'Could not update photo.');
+      Alert.alert("Upload failed", e?.message || "Could not update photo.");
     } finally {
       setUploadingPhoto(false);
     }
@@ -91,7 +110,9 @@ export default function EditProfileScreen() {
   async function handleSave() {
     setSaving(true);
     try {
-      await updateProfile({ name: name.trim(), avatarUri });
+      const update = { name: name.trim() };
+      if (pendingCanonicalUri) update.avatarUri = pendingCanonicalUri;
+      await updateProfile(update);
       router.back();
     } finally {
       setSaving(false);
@@ -101,7 +122,9 @@ export default function EditProfileScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <TopBar
-        leftIcon={<Feather name="arrow-left" size={22} color={tokens.colors.text} />}
+        leftIcon={
+          <Feather name="arrow-left" size={22} color={tokens.colors.text} />
+        }
         onLeftPress={() => router.back()}
         titleNode={<Text style={styles.topTitle}>Edit Profile</Text>}
       />
@@ -119,9 +142,13 @@ export default function EditProfileScreen() {
               <Feather name="user" size={40} color={tokens.colors.textMuted} />
             </View>
           )}
-          <Pressable onPress={handleChangePhoto} hitSlop={8} disabled={uploadingPhoto}>
+          <Pressable
+            onPress={handleChangePhoto}
+            hitSlop={8}
+            disabled={uploadingPhoto}
+          >
             <Text style={styles.changePhoto}>
-              {uploadingPhoto ? 'Uploading…' : 'Change photo'}
+              {uploadingPhoto ? "Uploading…" : "Change photo"}
             </Text>
           </Pressable>
         </View>
@@ -143,11 +170,13 @@ export default function EditProfileScreen() {
           <View style={styles.emailField}>
             <Text style={styles.label}>Email</Text>
             <TextInput
-              value={user?.email ?? ''}
+              value={user?.email ?? ""}
               editable={false}
               style={[styles.input, styles.inputDisabled]}
             />
-            <Text style={styles.emailNote}>Managed by your sign-in provider</Text>
+            <Text style={styles.emailNote}>
+              Managed by your sign-in provider
+            </Text>
           </View>
         </View>
 
@@ -166,7 +195,7 @@ export default function EditProfileScreen() {
         <View style={styles.accountSection}>
           <Pressable
             style={styles.deleteRow}
-            onPress={() => router.push('/delete-account')}
+            onPress={() => router.push("/delete-account")}
             hitSlop={8}
           >
             <Feather name="trash-2" size={20} color={tokens.colors.danger} />
@@ -185,7 +214,7 @@ const styles = StyleSheet.create({
   },
   topTitle: {
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     fontFamily: tokens.fonts.serifBold,
     fontSize: tokens.fontSize.md,
     color: tokens.colors.text,
@@ -195,7 +224,7 @@ const styles = StyleSheet.create({
     paddingBottom: tokens.spacing.xxxl,
   },
   avatarSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: tokens.spacing.xxl,
   },
   avatar: {
@@ -205,8 +234,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.surface,
   },
   avatarPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   changePhoto: {
     fontFamily: tokens.fonts.sans,
@@ -262,8 +291,8 @@ const styles = StyleSheet.create({
     marginTop: tokens.spacing.lg,
   },
   deleteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   deleteLabel: {
     fontFamily: tokens.fonts.sans,

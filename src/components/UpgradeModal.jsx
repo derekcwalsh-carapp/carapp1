@@ -45,6 +45,12 @@ const FEATURE_CONFIG = {
   },
 };
 
+function formatTierLabel(tier) {
+  if (tier === 'pro') return 'Pro';
+  if (tier === 'enthusiast') return 'Enthusiast';
+  return 'Free';
+}
+
 export default function UpgradeModal() {
   const { visible, feature, hide } = useUpgradeModalStore();
   const { tier: currentTier } = useSubscriptionStore();
@@ -78,7 +84,9 @@ export default function UpgradeModal() {
   if (!visible) return null;
 
   const config = FEATURE_CONFIG[feature] ?? FEATURE_CONFIG.lookup_limit;
-  const currentTierLabel = currentTier === 'free' ? 'Free' : 'Enthusiast';
+  const currentTierLabel = formatTierLabel(currentTier);
+  const targetTierLabel =
+    feature === 'vehicle_limit' && currentTier === 'enthusiast' ? 'Pro' : config.tier;
 
   const handleCta = () => {
     hide();
@@ -118,7 +126,7 @@ export default function UpgradeModal() {
             style={styles.tierArrow}
           />
           <View style={styles.pillFilled}>
-            <Text style={styles.pillFilledText}>{config.tier}</Text>
+            <Text style={styles.pillFilledText}>{targetTierLabel}</Text>
           </View>
         </View>
 

@@ -95,20 +95,22 @@ export default function SearchResultsScreen() {
         <Text style={styles.subline}>{status === 'loading' ? 'Searching…' : subline}</Text>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.pillRow}
-      >
-        {SORTS.map((s) => (
-          <Pill
-            key={s.id}
-            label={s.label}
-            selected={selectedSort === s.id}
-            onPress={() => setSelectedSort(s.id)}
-          />
-        ))}
-      </ScrollView>
+      <View style={styles.filterStrip}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillRow}
+        >
+          {SORTS.map((s) => (
+            <Pill
+              key={s.id}
+              label={s.label}
+              selected={selectedSort === s.id}
+              onPress={() => setSelectedSort(s.id)}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       {status === 'loading' ? (
         <View style={styles.loader}>
@@ -124,6 +126,7 @@ export default function SearchResultsScreen() {
         />
       ) : (
         <FlatList
+          style={styles.listFlex}
           data={visible}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
@@ -171,10 +174,23 @@ const styles = StyleSheet.create({
     color: tokens.colors.textMuted,
     marginTop: tokens.spacing.xs,
   },
+  /** Keeps sort pills from shrinking when FlatList claims remaining flex space. */
+  filterStrip: {
+    flexGrow: 0,
+    flexShrink: 0,
+    width: '100%',
+  },
   pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: tokens.spacing.xl,
     marginTop: tokens.spacing.md,
+    paddingBottom: tokens.spacing.xs,
     gap: tokens.spacing.sm,
+  },
+  listFlex: {
+    flex: 1,
+    minHeight: 0,
   },
   loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: {

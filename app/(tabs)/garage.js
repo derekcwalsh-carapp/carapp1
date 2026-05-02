@@ -30,12 +30,15 @@ export default function GarageScreen() {
   const deleteVehicle = useGarageStore((s) => s.deleteVehicle);
 
   const vehicleLimit = useSubscriptionStore((s) => s.vehicleLimit);
+  const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription);
+  const subscriptionLoadStatus = useSubscriptionStore((s) => s.subscriptionLoadStatus);
   const showUpgrade = useUpgradeModalStore((s) => s.show);
 
   useFocusEffect(
     useCallback(() => {
       fetchVehicles();
-    }, [fetchVehicles])
+      fetchSubscription();
+    }, [fetchVehicles, fetchSubscription])
   );
 
   function handleLongPress(vehicle) {
@@ -88,7 +91,7 @@ export default function GarageScreen() {
         <Pressable
           style={styles.addButton}
           onPress={() => {
-            if (vehicles.length >= vehicleLimit) {
+            if (subscriptionLoadStatus === 'success' && vehicles.length >= vehicleLimit) {
               showUpgrade('vehicle_limit');
             } else {
               router.push('/garage/add');
@@ -112,6 +115,12 @@ export default function GarageScreen() {
           <Pressable onPress={() => fetchVehicles()} style={styles.retryBtn}>
             <Text style={styles.retryLabel}>Try again</Text>
           </Pressable>
+        </View>
+      ) : vehicles.length === 0 ? (
+        <View style={styles.centered}>
+          <Feather name="truck" size={48} color={tokens.colors.border} />
+          <Text style={styles.emptyTitle}>Your garage is empty</Text>
+          <Text style={styles.emptyBody}>Tap + to add your first vehicle.</Text>
         </View>
       ) : (
         <ScrollView
@@ -206,5 +215,19 @@ const styles = StyleSheet.create({
     fontFamily: tokens.fonts.sansMedium,
     fontSize: tokens.fontSize.md,
     color: tokens.colors.primary,
+  },
+  emptyTitle: {
+    fontFamily: tokens.fonts.serifBold,
+    fontSize: tokens.fontSize.xl,
+    color: tokens.colors.text,
+    marginTop: tokens.spacing.lg,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    fontFamily: tokens.fonts.sans,
+    fontSize: tokens.fontSize.md,
+    color: tokens.colors.textMuted,
+    marginTop: tokens.spacing.sm,
+    textAlign: 'center',
   },
 });

@@ -2,13 +2,15 @@ import { Linking } from 'react-native';
 import { create } from 'zustand';
 import {
   fetchSubscription as fetchSubscriptionApi,
+  subscribeToPlan as subscribeToPlanApi,
   createCheckoutSession,
   cancelSubscription as cancelSubscriptionApi,
   fetchInvoices as fetchInvoicesApi,
   openPortal as openPortalApi,
+  changeBillingCycle as changeBillingCycleApi,
 } from '../api/subscriptionService';
 
-const useSubscriptionStore = create((set, get) => ({
+const initialSubscriptionState = {
   tier: 'free',
   billingCycle: null,
   lookupsUsed: 0,
@@ -19,6 +21,12 @@ const useSubscriptionStore = create((set, get) => ({
   cancelAtPeriodEnd: false,
   invoices: [],
   subscriptionLoadStatus: 'idle',
+};
+
+const useSubscriptionStore = create((set, get) => ({
+  ...initialSubscriptionState,
+
+  reset: () => set({ ...initialSubscriptionState }),
 
   setBillingCycle: (cycle) => set({ billingCycle: cycle }),
 
@@ -42,6 +50,14 @@ const useSubscriptionStore = create((set, get) => ({
     }
   },
 
+  subscribe: async (tier, cycle) => {
+    const result = await subscribeToPlanApi(tier, cycle);
+    if (!result.requiresAction) {
+      await get().fetchSubscription();
+    }
+    return result;
+  },
+
   startCheckout: async (tier, cycle) => {
     const { url } = await createCheckoutSession(tier, cycle);
     if (url) await Linking.openURL(url);
@@ -50,6 +66,14 @@ const useSubscriptionStore = create((set, get) => ({
   cancelSubscription: async () => {
     await cancelSubscriptionApi();
     await get().fetchSubscription();
+  },
+
+  changeBillingCycle: async (cycle) => {
+    const result = await changeBillingCycleApi(cycle);
+    if (!result.requiresAction) {
+      await get().fetchSubscription();
+    }
+    return result;
   },
 
   openPortal: () => openPortalApi(),

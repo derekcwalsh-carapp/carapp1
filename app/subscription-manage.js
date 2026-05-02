@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
+import { useStripe } from '@stripe/stripe-react-native';
 import { Feather } from '@expo/vector-icons';
 import tokens from '../src/theme/tokens';
 import TopBar from '../src/components/TopBar';
@@ -73,14 +74,17 @@ export default function SubscriptionManageScreen() {
   const invoices = useSubscriptionStore((s) => s.invoices);
   const cancelSubscription = useSubscriptionStore((s) => s.cancelSubscription);
   const openPortal = useSubscriptionStore((s) => s.openPortal);
-  const setBillingCycle = useSubscriptionStore((s) => s.setBillingCycle);
   const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription);
   const fetchInvoices = useSubscriptionStore((s) => s.fetchInvoices);
+  const changeBillingCycle = useSubscriptionStore((s) => s.changeBillingCycle);
 
+  const { handleNextAction } = useStripe();
   const { vehicles } = useGarageStore();
 
   const [invoicesOpen, setInvoicesOpen] = useState(false);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [switchLoading, setSwitchLoading] = useState(false);
 
   const meterAnim = useRef(new Animated.Value(0)).current;
   const meterFill = lookupsLimit > 0 ? lookupsUsed / lookupsLimit : 0;
@@ -103,29 +107,72 @@ export default function SubscriptionManageScreen() {
   const tierLabel = TIER_LABELS[tier] ?? tier;
   const priceLabel = TIER_PRICES[tier]?.[billingCycle] ?? '';
 
+  const handleCancel = async () => {
+    if (cancelLoading) return;
+    setCancelLoading(true);
+    try {
+      await cancelSubscription();
+      await fetchSubscription();
+      Alert.alert('Subscription updated', 'Your subscription will cancel at the end of this billing period.');
+    } catch (e) {
+      const msg =
+        e?.response?.data?.error?.message ??
+        e?.response?.data?.message ??
+        e?.message ??
+        'Could not cancel subscription. Please try again.';
+      Alert.alert('Cancel failed', msg);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   const handleCancelPress = () => {
     Alert.alert(
       'Cancel subscription?',
       "You'll keep access until the end of your billing period.",
       [
         { text: 'Keep plan', style: 'cancel' },
-        { text: 'Cancel', style: 'destructive', onPress: cancelSubscription },
+        { text: 'Cancel', style: 'destructive', onPress: handleCancel },
       ]
     );
   };
 
   const handleSwitchBilling = () => {
+    if (switchLoading) return;
     const next = isAnnual ? 'monthly' : 'annual';
+    const label = next === 'annual' ? 'annual billing' : 'monthly billing';
     Alert.alert(
-      `Switch to ${next} billing?`,
-      `Your plan will update to ${next} billing at next renewal.`,
+      `Switch to ${label}?`,
+      next === 'annual'
+        ? 'Save by paying yearly. Your plan updates immediately.'
+        : 'Switch back to monthly billing. Your plan updates immediately.',
       [
         { text: 'Nevermind', style: 'cancel' },
         {
           text: 'Switch',
-          onPress: () => {
-            setBillingCycle(next);
-            console.log(`[CarLens] Billing cycle → ${next}`);
+          onPress: async () => {
+            setSwitchLoading(true);
+            try {
+              const result = await changeBillingCycle(next);
+              if (result?.requiresAction && result.clientSecret) {
+                const { error } = await handleNextAction(result.clientSecret);
+                if (error) {
+                  Alert.alert('Payment failed', error.message);
+                  return;
+                }
+                await fetchSubscription();
+              }
+              Alert.alert('Billing updated', `You've switched to ${label}.`);
+            } catch (e) {
+              const msg =
+                e?.response?.data?.error?.message ??
+                e?.response?.data?.message ??
+                e?.message ??
+                'Could not switch billing cycle. Please try again.';
+              Alert.alert('Switch failed', msg);
+            } finally {
+              setSwitchLoading(false);
+            }
           },
         },
       ]
@@ -237,6 +284,8 @@ export default function SubscriptionManageScreen() {
             variant="outlined"
             fullWidth
             onPress={handleSwitchBilling}
+            disabled={switchLoading}
+            loading={switchLoading}
           />
         </View>
 
@@ -247,8 +296,15 @@ export default function SubscriptionManageScreen() {
               <Text style={styles.resubscribeText}>Resubscribe</Text>
             </Pressable>
           ) : (
-            <Pressable onPress={handleCancelPress}>
-              <Text style={styles.cancelText}>Cancel subscription</Text>
+            <Pressable onPress={handleCancelPress} disabled={cancelLoading}>
+              {cancelLoading ? (
+                <View style={styles.cancelLoadingRow}>
+                  <ActivityIndicator size="small" color={tokens.colors.danger} />
+                  <Text style={styles.cancelText}>Cancelling...</Text>
+                </View>
+              ) : (
+                <Text style={styles.cancelText}>Cancel subscription</Text>
+              )}
             </Pressable>
           )}
         </View>
@@ -447,6 +503,11 @@ const styles = StyleSheet.create({
     fontFamily: tokens.fonts.sans,
     fontSize: tokens.fontSize.sm,
     color: tokens.colors.danger,
+  },
+  cancelLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: tokens.spacing.xs,
   },
   resubscribeText: {
     fontFamily: tokens.fonts.sans,

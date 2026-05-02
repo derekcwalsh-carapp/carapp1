@@ -1,26 +1,35 @@
-import { useEffect } from 'react';
-import { Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
-import tokens from '../../src/theme/tokens';
-import TopBar from '../../src/components/TopBar';
-import useAuthStore from '../../src/stores/authStore';
-import useSubscriptionStore from '../../src/stores/subscriptionStore';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Image,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Feather } from "@expo/vector-icons";
+import tokens from "../../src/theme/tokens";
+import TopBar from "../../src/components/TopBar";
+import useAuthStore from "../../src/stores/authStore";
+import useSubscriptionStore from "../../src/stores/subscriptionStore";
 
-const AVATAR_PLACEHOLDER = 'https://placehold.co/56x56/EFEFEF/6B6B66?text=MS';
+const AVATAR_PLACEHOLDER = "https://placehold.co/56x56/EFEFEF/6B6B66?text=MS";
 
 const BASE_MENU_ITEMS = [
-  { icon: 'truck',        label: 'My Garage',        route: '/(tabs)/garage' },
-  { icon: 'package',      label: 'Orders',            route: '/orders' },
-  { icon: 'star',         label: 'Your plan',         route: null },
-  { icon: 'bookmark',     label: 'Saved items',       route: '/(tabs)/saved' },
-  { icon: 'trending-down', label: 'Watchlist',         route: '/watchlist' },
-  { icon: 'map-pin',      label: 'Addresses',         route: '/addresses' },
-  { icon: 'credit-card',  label: 'Payment methods',   route: '/payment-methods' },
-  { icon: 'bell',         label: 'Notifications',     route: '/notifications' },
-  { icon: 'help-circle',  label: 'Help & support',    route: null },
-  { icon: 'shield',       label: 'Privacy',           route: null },
-  { icon: 'file-text',    label: 'Terms of service',  route: null },
+  { icon: "truck", label: "My Garage", route: "/(tabs)/garage" },
+  { icon: "package", label: "Orders", route: "/orders" },
+  { icon: "star", label: "Your plan", route: null },
+  { icon: "bookmark", label: "Saved items", route: "/(tabs)/saved" },
+  { icon: "trending-down", label: "Watchlist", route: "/watchlist" },
+  { icon: "map-pin", label: "Addresses", route: "/addresses" },
+  { icon: "credit-card", label: "Payment methods", route: "/payment-methods" },
+  { icon: "bell", label: "Notifications", route: "/notifications" },
+  { icon: "help-circle", label: "Help & support", route: null },
+  { icon: "shield", label: "Privacy", route: null },
+  { icon: "file-text", label: "Terms of service", route: null },
 ];
 
 function MenuRow({ icon, label, onPress, danger, last }) {
@@ -36,9 +45,15 @@ function MenuRow({ icon, label, onPress, danger, last }) {
         color={danger ? tokens.colors.danger : tokens.colors.textMuted}
         style={styles.rowIcon}
       />
-      <Text style={[styles.rowLabel, danger && styles.rowLabelDanger]}>{label}</Text>
+      <Text style={[styles.rowLabel, danger && styles.rowLabelDanger]}>
+        {label}
+      </Text>
       {!danger && (
-        <Feather name="chevron-right" size={16} color={tokens.colors.textMuted} />
+        <Feather
+          name="chevron-right"
+          size={16}
+          color={tokens.colors.textMuted}
+        />
       )}
     </Pressable>
   );
@@ -49,33 +64,57 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const signOut = useAuthStore((s) => s.signOut);
   const hydrate = useAuthStore((s) => s.hydrate);
+  const refreshProfile = useAuthStore((s) => s.refreshProfile);
   const tier = useSubscriptionStore((s) => s.tier);
   const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const [avatarTriedFallback, setAvatarTriedFallback] = useState(false);
 
   useEffect(() => {
     hydrate();
     fetchSubscription();
-  }, [hydrate, fetchSubscription]);
+    refreshProfile();
+  }, [hydrate, fetchSubscription, refreshProfile]);
 
-  const menuItems = BASE_MENU_ITEMS.map((item) =>
-    item.label === 'Your plan'
-      ? { ...item, route: tier === 'free' ? '/subscription' : '/subscription-manage' }
-      : item
+  useFocusEffect(
+    useCallback(() => {
+      refreshProfile();
+    }, [refreshProfile]),
   );
 
-  const name = user?.name ?? 'Guest';
-  const email = user?.email ?? '';
-  const avatarUri = user?.avatarUri ?? AVATAR_PLACEHOLDER;
+  const menuItems = BASE_MENU_ITEMS.map((item) =>
+    item.label === "Your plan"
+      ? {
+          ...item,
+          route: tier === "free" ? "/subscription" : "/subscription-manage",
+        }
+      : item,
+  );
+
+  const name = user?.name ?? "Guest";
+  const email = user?.email ?? "";
+  const avatarUri = useMemo(() => {
+    if (avatarFailed && avatarTriedFallback) return null;
+    const value =
+      avatarFailed && !avatarTriedFallback ? user?.avatarFallbackUri : user?.avatarUri;
+    if (typeof value !== "string" || value.trim().length === 0) return null;
+    return value;
+  }, [avatarFailed, avatarTriedFallback, user?.avatarUri, user?.avatarFallbackUri]);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+    setAvatarTriedFallback(false);
+  }, [user?.avatarUri, user?.avatarFallbackUri]);
 
   function handleSignOut() {
-    Alert.alert('Sign out?', 'You will be signed out of CarLens.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert("Sign out?", "You will be signed out of CarLens.", [
+      { text: "Cancel", style: "cancel" },
       {
-        text: 'Sign out',
-        style: 'destructive',
+        text: "Sign out",
+        style: "destructive",
         onPress: async () => {
           await signOut();
-          router.replace('/sign-in');
+          router.replace("/sign-in");
         },
       },
     ]);
@@ -86,7 +125,9 @@ export default function ProfileScreen() {
       <TopBar
         leftIcon={<Feather name="user" size={22} color={tokens.colors.text} />}
         titleNode={<Text style={styles.wordmark}>CarLens</Text>}
-        rightIcon={<Feather name="share-2" size={22} color={tokens.colors.text} />}
+        rightIcon={
+          <Feather name="share-2" size={22} color={tokens.colors.text} />
+        }
       />
 
       <ScrollView
@@ -99,13 +140,29 @@ export default function ProfileScreen() {
             <Text style={styles.email}>{email}</Text>
           </View>
           <Pressable
-            onPress={() => router.push('/edit-profile')}
+            onPress={() => router.push("/edit-profile")}
             hitSlop={8}
             style={styles.editButton}
           >
             <Feather name="edit-2" size={18} color={tokens.colors.textMuted} />
           </Pressable>
-          <Image source={{ uri: avatarUri }} style={styles.avatar} />
+          {avatarUri ? (
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.avatar}
+              onError={() => {
+                if (!avatarFailed) {
+                  setAvatarFailed(true);
+                } else {
+                  setAvatarTriedFallback(true);
+                }
+              }}
+            />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Feather name="user" size={24} color={tokens.colors.textMuted} />
+            </View>
+          )}
         </View>
 
         <View style={styles.menu}>
@@ -141,7 +198,7 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     fontFamily: tokens.fonts.serifBold,
     fontSize: tokens.fontSize.lg,
     color: tokens.colors.text,
@@ -151,9 +208,9 @@ const styles = StyleSheet.create({
     paddingBottom: tokens.spacing.xxxl,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginVertical: tokens.spacing.xl,
   },
   headerText: {
@@ -164,7 +221,7 @@ const styles = StyleSheet.create({
     fontFamily: tokens.fonts.serifBold,
     fontSize: tokens.fontSize.xxl,
     color: tokens.colors.text,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   email: {
     fontFamily: tokens.fonts.sans,
@@ -178,6 +235,10 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     backgroundColor: tokens.colors.surface,
   },
+  avatarPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
   editButton: {
     padding: tokens.spacing.sm,
     marginRight: tokens.spacing.xs,
@@ -188,8 +249,8 @@ const styles = StyleSheet.create({
   },
   row: {
     height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   rowBorder: {
     borderBottomWidth: 1,

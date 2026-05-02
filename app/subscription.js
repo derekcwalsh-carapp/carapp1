@@ -1,12 +1,14 @@
-import { useEffect } from 'react';
-import { View, Text, ScrollView, SafeAreaView, StyleSheet, Pressable } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, ScrollView, SafeAreaView, StyleSheet, Pressable, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useStripe } from '@stripe/stripe-react-native';
 import tokens from '../src/theme/tokens';
 import TopBar from '../src/components/TopBar';
 import PrimaryButton from '../src/components/PrimaryButton';
 import Pill from '../src/components/Pill';
 import useSubscriptionStore from '../src/stores/subscriptionStore';
+import usePaymentStore from '../src/stores/paymentStore';
 
 function FeatureRow({ label }) {
   return (
@@ -73,17 +75,54 @@ export default function SubscriptionScreen() {
   const tier = useSubscriptionStore((s) => s.tier);
   const billingCycle = useSubscriptionStore((s) => s.billingCycle);
   const setBillingCycle = useSubscriptionStore((s) => s.setBillingCycle);
-  const startCheckout = useSubscriptionStore((s) => s.startCheckout);
+  const subscribe = useSubscriptionStore((s) => s.subscribe);
   const fetchSubscription = useSubscriptionStore((s) => s.fetchSubscription);
+  const paymentMethods = usePaymentStore((s) => s.methods);
+  const fetchMethods = usePaymentStore((s) => s.fetchMethods);
+  const { handleNextAction } = useStripe();
   const isAnnual = billingCycle === 'annual';
+  const [loadingTier, setLoadingTier] = useState(null); // null | 'enthusiast' | 'pro'
 
   useEffect(() => {
     fetchSubscription();
-  }, [fetchSubscription]);
+    fetchMethods();
+  }, [fetchSubscription, fetchMethods]);
 
-  const handleCheckout = (planTier) => {
-    const cycle = billingCycle ?? 'monthly';
-    void startCheckout(planTier, cycle);
+  const handleCheckout = async (planTier) => {
+    if (paymentMethods.length === 0) {
+      Alert.alert(
+        'No payment method',
+        'Please add a card before upgrading.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Add card', onPress: () => router.push('/payment-methods') },
+        ]
+      );
+      return;
+    }
+    setLoadingTier(planTier);
+    try {
+      const cycle = billingCycle ?? 'monthly';
+      const result = await subscribe(planTier, cycle);
+      if (result?.requiresAction && result.clientSecret) {
+        const { error } = await handleNextAction(result.clientSecret);
+        if (error) {
+          Alert.alert('Payment failed', error.message);
+          return;
+        }
+        await fetchSubscription();
+      }
+      router.push('/subscription-manage');
+    } catch (e) {
+      const msg =
+        e?.response?.data?.error?.message ??
+        e?.response?.data?.message ??
+        e?.message ??
+        'Something went wrong.';
+      Alert.alert('Subscription error', msg);
+    } finally {
+      setLoadingTier(null);
+    }
   };
 
   return (
@@ -153,6 +192,8 @@ export default function SubscriptionScreen() {
                 variant="filled"
                 fullWidth
                 onPress={() => handleCheckout('enthusiast')}
+                disabled={loadingTier !== null}
+                loading={loadingTier === 'enthusiast'}
                 labelStyle={styles.upgradeLabel}
               />
             )}
@@ -179,6 +220,8 @@ export default function SubscriptionScreen() {
                 variant="outlined"
                 fullWidth
                 onPress={() => handleCheckout('pro')}
+                disabled={loadingTier !== null}
+                loading={loadingTier === 'pro'}
                 labelStyle={styles.upgradeLabel}
               />
             )}

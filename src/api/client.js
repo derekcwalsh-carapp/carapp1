@@ -24,7 +24,10 @@ function shouldSkipAuthRefresh(url) {
   return (
     url.includes('/auth/refresh') ||
     url.includes('/auth/signin') ||
-    url.includes('/auth/magic-link')
+    url.includes('/auth/magic-link') ||
+    url.includes('/auth/email/') ||
+    url.includes('/auth/forgot-password') ||
+    url.includes('/auth/reset-password')
   );
 }
 

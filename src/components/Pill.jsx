@@ -16,6 +16,7 @@ export default function Pill({ label, selected, onPress }) {
 const styles = StyleSheet.create({
   pill: {
     alignSelf: 'flex-start',
+    flexShrink: 0,
     paddingVertical: tokens.spacing.sm,
     paddingHorizontal: tokens.spacing.lg,
     borderRadius: tokens.radius.pill,

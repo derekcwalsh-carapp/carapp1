@@ -5,6 +5,11 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import useGarageStore from './garageStore';
 
+async function clearSensitiveStoresAsync() {
+  const { clearSensitiveStores } = await import('./sessionCleanup.js');
+  clearSensitiveStores();
+}
+
 const AUTH_KEY = '@carlens/auth';
 const REFRESH_KEY = '@carlens/refresh';
 
@@ -23,11 +28,32 @@ function apiRequest(config) {
 
 function mapUser(u) {
   if (!u) return null;
+  const rawAvatar = u.avatarUri ?? u.avatar_uri ?? null;
+  const normalizedAvatar =
+    typeof rawAvatar === 'string' && rawAvatar.trim().length === 0
+      ? null
+      : rawAvatar;
   return {
     id: u.id,
     email: u.email,
     name: u.name,
-    avatarUri: u.avatarUri ?? u.avatar_uri ?? null,
+    avatarUri: normalizedAvatar,
+    avatarFallbackUri:
+      typeof u.avatarFallbackUri === 'string' && u.avatarFallbackUri.trim().length > 0
+        ? u.avatarFallbackUri
+        : null,
+  };
+}
+
+function mergeUserKeepingAvatar(previousUser, incomingUser) {
+  if (!incomingUser) return previousUser ?? null;
+  if (!previousUser) return incomingUser;
+  const hasIncomingAvatar =
+    typeof incomingUser.avatarUri === 'string' && incomingUser.avatarUri.trim().length > 0;
+  return {
+    ...previousUser,
+    ...incomingUser,
+    avatarUri: hasIncomingAvatar ? incomingUser.avatarUri : previousUser.avatarUri ?? null,
   };
 }
 
@@ -40,9 +66,16 @@ async function persistAuth({ user, token, refreshToken }) {
 
 async function registerExpoPushToken() {
   try {
-    const { data: token } = await Notifications.getExpoPushTokenAsync();
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    const finalStatus =
+      existing !== 'granted'
+        ? (await Notifications.requestPermissionsAsync()).status
+        : existing;
+    if (finalStatus !== 'granted') return;
+
+    const tokenData = await Notifications.getExpoPushTokenAsync();
     const { registerPushToken } = await import('../api/notificationService.js');
-    await registerPushToken(token, 'expo');
+    await registerPushToken(tokenData.data, 'expo');
   } catch (e) {
     console.warn('[CarLens] Could not register push token:', e?.message ?? e);
   }
@@ -52,7 +85,6 @@ const useAuthStore = create((set, get) => ({
   user: null,
   token: null,
   refreshToken: null,
-  pendingEmail: null,
 
   /** Used by api/client refresh interceptor */
   setTokens: async (accessToken, refreshToken) => {
@@ -62,13 +94,14 @@ const useAuthStore = create((set, get) => ({
   },
 
   clearSession: async () => {
+    await clearSensitiveStoresAsync();
     useGarageStore.setState({
       vehicles: [],
       activeVehicleId: null,
       status: 'idle',
       error: null,
     });
-    set({ user: null, token: null, refreshToken: null, pendingEmail: null });
+    set({ user: null, token: null, refreshToken: null });
     await AsyncStorage.multiRemove([AUTH_KEY, REFRESH_KEY]);
     router.replace('/sign-in');
   },
@@ -80,6 +113,7 @@ const useAuthStore = create((set, get) => ({
       url: '/v1/auth/signin',
       data: { provider: 'apple', idToken: identityToken },
     });
+    await clearSensitiveStoresAsync();
     const payload = data?.data;
     const user = mapUser(payload.user);
     const token = payload.accessToken;
@@ -95,6 +129,7 @@ const useAuthStore = create((set, get) => ({
       url: '/v1/auth/signin',
       data: { provider: 'google', idToken },
     });
+    await clearSensitiveStoresAsync();
     const payload = data?.data;
     const user = mapUser(payload.user);
     const token = payload.accessToken;
@@ -104,34 +139,75 @@ const useAuthStore = create((set, get) => ({
     void registerExpoPushToken();
   },
 
-  sendMagicLink: async (email) => {
-    const trimmed = email.trim();
+  signInWithEmail: async (email, password) => {
     const { data } = await apiRequest({
       method: 'POST',
-      url: '/v1/auth/magic-link',
-      data: { email: trimmed },
+      url: '/v1/auth/email/signin',
+      data: { email: email.trim(), password },
     });
-    const payload = data?.data || {};
-    set({ pendingEmail: trimmed });
-    return {
-      message: payload.message || 'Check your email for a sign-in link.',
-      devToken: payload.devToken,
-    };
+    await clearSensitiveStoresAsync();
+    const payload = data?.data;
+    const user = mapUser(payload.user);
+    const token = payload.accessToken;
+    const refreshToken = payload.refreshToken;
+    set({ user, token, refreshToken });
+    await persistAuth({ user, token, refreshToken });
+    void registerExpoPushToken();
   },
 
-  verifyMagicLink: async (token) => {
+  signUpWithEmail: async (email, password) => {
     const { data } = await apiRequest({
-      method: 'GET',
-      url: '/v1/auth/magic-link/verify',
-      params: { token },
+      method: 'POST',
+      url: '/v1/auth/email/signup',
+      data: { email: email.trim(), password },
     });
-    const payload = data?.data || {};
+    const result = data?.data;
+    if (!result?.pendingToken) {
+      throw new Error('Sign up service unavailable. Please try again.');
+    }
+    return result;
+  },
+
+  verifySignupOtp: async (pendingToken, otp) => {
+    const { data } = await apiRequest({
+      method: 'POST',
+      url: '/v1/auth/email/signup/verify',
+      data: { pendingToken, otp },
+    });
+    await clearSensitiveStoresAsync();
+    const payload = data?.data;
     const user = mapUser(payload.user);
-    const accessToken = payload.accessToken;
+    const token = payload.accessToken;
     const refreshToken = payload.refreshToken;
-    set({ user, token: accessToken, refreshToken, pendingEmail: null });
-    await persistAuth({ user, token: accessToken, refreshToken });
+    set({ user, token, refreshToken });
+    await persistAuth({ user, token, refreshToken });
     void registerExpoPushToken();
+  },
+
+  resendSignupOtp: async (pendingToken) => {
+    const { data } = await apiRequest({
+      method: 'POST',
+      url: '/v1/auth/email/signup/resend',
+      data: { pendingToken },
+    });
+    return data?.data;
+  },
+
+  forgotPassword: async (email) => {
+    const { data } = await apiRequest({
+      method: 'POST',
+      url: '/v1/auth/forgot-password',
+      data: { email: email.trim() },
+    });
+    return data?.data || {};
+  },
+
+  resetPassword: async (token, password) => {
+    await apiRequest({
+      method: 'POST',
+      url: '/v1/auth/reset-password',
+      data: { token, password },
+    });
   },
 
   signOut: async () => {
@@ -146,14 +222,32 @@ const useAuthStore = create((set, get) => ({
     } catch (_) {
       /* still clear locally */
     }
+    await clearSensitiveStoresAsync();
     useGarageStore.setState({
       vehicles: [],
       activeVehicleId: null,
       status: 'idle',
       error: null,
     });
-    set({ user: null, token: null, refreshToken: null, pendingEmail: null });
+    set({ user: null, token: null, refreshToken: null });
     await AsyncStorage.multiRemove([AUTH_KEY, REFRESH_KEY]);
+  },
+
+  refreshProfile: async () => {
+    const { token, user: currentUser } = get();
+    if (!token) return;
+    try {
+      const { data } = await apiRequest({
+        method: 'GET',
+        url: '/v1/me',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const nextUser = mergeUserKeepingAvatar(currentUser, mapUser(data?.data));
+      if (!nextUser) return;
+      const refreshToken = get().refreshToken;
+      set({ user: nextUser });
+      await persistAuth({ user: nextUser, token, refreshToken });
+    } catch (_) {}
   },
 
   updateProfile: async (fields) => {
@@ -161,7 +255,7 @@ const useAuthStore = create((set, get) => ({
     if (!token || !user) return;
     const body = {};
     if (typeof fields.name !== 'undefined') body.name = fields.name;
-    if (typeof fields.avatarUri !== 'undefined') body.avatarUri = fields.avatarUri;
+    if (fields.avatarUri != null) body.avatarUri = fields.avatarUri;
 
     const { data } = await apiRequest({
       method: 'PATCH',
@@ -169,7 +263,7 @@ const useAuthStore = create((set, get) => ({
       data: body,
       headers: { Authorization: `Bearer ${token}` },
     });
-    const nextUser = mapUser(data?.data);
+    const nextUser = mergeUserKeepingAvatar(user, mapUser(data?.data));
     const refreshToken = get().refreshToken;
     set({ user: nextUser });
     await persistAuth({ user: nextUser, token, refreshToken });
@@ -184,13 +278,14 @@ const useAuthStore = create((set, get) => ({
         headers: { Authorization: `Bearer ${token}` },
       });
     }
+    await clearSensitiveStoresAsync();
     useGarageStore.setState({
       vehicles: [],
       activeVehicleId: null,
       status: 'idle',
       error: null,
     });
-    set({ user: null, token: null, refreshToken: null, pendingEmail: null });
+    set({ user: null, token: null, refreshToken: null });
     await AsyncStorage.multiRemove([AUTH_KEY, REFRESH_KEY]);
   },
 
@@ -202,31 +297,17 @@ const useAuthStore = create((set, get) => ({
         const user = mapUser(parsed.user);
         const token = parsed.token ?? null;
         const refreshToken = parsed.refreshToken ?? null;
+        await clearSensitiveStoresAsync();
         set({ user, token, refreshToken });
         if (refreshToken) {
           await AsyncStorage.setItem(REFRESH_KEY, refreshToken);
         }
+      } else {
+        await clearSensitiveStoresAsync();
       }
     } catch (_) {}
   },
 
-  /**
-   * @deprecated Use signInWithApple / signInWithGoogle / email flow
-   */
-  signIn: async (provider) => {
-    console.warn(
-      '[authStore] signIn(provider) is deprecated; use signInWithApple, signInWithGoogle, or sendMagicLink.'
-    );
-    if (provider === 'apple') {
-      throw new Error('Use signInWithApple(identityToken) with expo-apple-authentication');
-    }
-    if (provider === 'google') {
-      throw new Error('Google sign-in is not wired yet');
-    }
-    if (provider === 'email') {
-      throw new Error('Use navigation to /email-signin');
-    }
-  },
 }));
 
 export default useAuthStore;
